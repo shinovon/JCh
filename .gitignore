@@ -1,0 +1,9 @@
+.mtj.tmp/
+
+*.jar
+*.zip
+
+bin
+deployed
+.settings
+.mtj
