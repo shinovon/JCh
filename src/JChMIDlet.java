@@ -2,8 +2,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Vector;
 
 import javax.microedition.io.Connector;
 import javax.microedition.io.ContentConnection;
@@ -19,13 +17,17 @@ import javax.microedition.lcdui.StringItem;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.midlet.MIDlet;
 
+import cc.nnproject.json.JSON;
+import cc.nnproject.json.JSONArray;
+import cc.nnproject.json.JSONObject;
+
 public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandListener {
 
-	private static Command exitCmd = new Command("�����", Command.EXIT, 0);
-	private static Command backCmd = new Command("�����", Command.BACK, 0);
-	private static Command boardFieldCmd = new Command("������", Command.OK, 0);
-	private static Command boardCmd = new Command("�����", Command.OK, 0);
-	private static Command boardSearchCmd = new Command("�����", Command.OK, 0);
+	private static Command exitCmd = new Command("Выход", Command.EXIT, 0);
+	private static Command backCmd = new Command("Назад", Command.BACK, 0);
+	private static Command boardFieldCmd = new Command("Раздел", Command.OK, 0);
+	private static Command boardCmd = new Command("Треды", Command.OK, 0);
+	private static Command boardSearchCmd = new Command("Поиск", Command.OK, 0);
 	private static String platform;
 	private static Object result;
 	private static String version;
@@ -41,15 +43,15 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 
 	public JChMIDlet() {
-		mainFrm = new Form("JCh - �������");
+		mainFrm = new Form("JCh - Главная");
 		mainFrm.setCommandListener(this);
 		mainFrm.addCommand(exitCmd);
 		mainFrm.append(boardField = new TextField("", "", 8, TextField.ANY));
-		boardField.setLabel("������");
+		boardField.setLabel("Раздел");
 		boardField.addCommand(boardFieldCmd);
 		boardField.setItemCommandListener(this);
 		StringItem btn = new StringItem("", "", StringItem.BUTTON);
-		btn.setText("����");
+		btn.setText("Ввод");
 		btn.setDefaultCommand(boardFieldCmd);
 		btn.setItemCommandListener(this);
 		mainFrm.append(btn);
@@ -78,17 +80,18 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			public void run() {
 				try {
 					getResult("makaba/mobile.fcgi?task=get_boards&");
-					if(!JSON.isObject(result))
+					if(!(result instanceof JSONObject))
 						return;
-					Hashtable result = ((Hashtable)JChMIDlet.result);
+					JSONObject result = (JSONObject)JChMIDlet.result;
 					for(Enumeration en = result.keys(); en.hasMoreElements();) {
-						Object key = en.nextElement();
-						Vector category = (Vector) result.get(key);
+						String key = (String) en.nextElement();
+						JSONArray category = (JSONArray) result.getArray(key);
 						mainFrm.append("\n" + key + "\n");
-						for(Enumeration boards = category.elements(); boards.hasMoreElements(); ) {
-							Object board = boards.nextElement();
-							String id = JSON.optValue(board, "id");
-							String name = JSON.optValue(board, "name");
+						int l = category.size();
+						for(int i = 0; i < l; i++) {
+							JSONObject board = category.getObject(i);
+							String id = board.getNullableString("id");
+							String name = board.getNullableString("name");
 							StringItem btn = new StringItem("", "", StringItem.BUTTON);
 							btn.setText("/" + id + "/ " + name);
 							btn.setDefaultCommand(boardCmd);
@@ -108,7 +111,10 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	public static void getResult(String string) throws Exception {
 		result = null;
 		download(prepareUrl(string));
-		result = JSON.parseJSON((String) result);
+		if(((String) result).charAt(0) == '{')
+			result = JSON.getObject((String) result);
+		else if(((String) result).charAt(0) == '[')
+			result = JSON.getArray((String) result);
 	}
 
 	public void commandAction(Command c, Displayable d) {
@@ -121,7 +127,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	public void commandAction(Command c, Item item) {
 		if(c == boardFieldCmd) {
 			board(boardField.getString());
-		} else if(c == boardCmd || c.getLabel().startsWith("�����")) {
+		} else if(c == boardCmd || c.getLabel().startsWith("Треды")) {
 			if(item instanceof TextField)
 				board(((TextField)item).getString());
 			else if(item instanceof StringItem)
@@ -148,35 +154,36 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		boardFrm.addCommand(backCmd);
 		boardFrm.setCommandListener(this);
 		boardFrm.append(boardSearchField = new TextField("","", 1000, TextField.ANY));
-		boardSearchField.setLabel("�����");
+		boardSearchField.setLabel("Поиск");
 		boardSearchField.addCommand(boardSearchCmd);
 		boardSearchField.setItemCommandListener(this);
-		StringItem btn = new StringItem("�����", "", StringItem.BUTTON);
+		StringItem btn = new StringItem("Поиск", "", StringItem.BUTTON);
 		btn.setDefaultCommand(boardSearchCmd);
 		btn.setItemCommandListener(this);
 		mainFrm.append(btn);
 		new Thread() {
 			public void run() {
-				Object j = null;
+				JSONObject j = null;
 				try {
 					getResult(board + "/threads.json");
-					if(!JSON.isObject(result))
+					if(!(result instanceof JSONObject))
 						throw new RuntimeException("Result not object: " + result);
-					j = result;
+					j = (JSONObject) result;
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-				if(j == null || !JSON.isObject(j))
+				if(j == null || !(result instanceof JSONObject))
 					return;
-				Object th = JSON.optObject(j, "threads");
-				if(!JSON.isArray(th))
+				JSONArray th = j.getNullableArray("threads");
+				if(th == null)
 					return;
 				try {
-					for(Enumeration threads = ((Vector) th).elements(); threads.hasMoreElements(); ) {
-						Hashtable thread = (Hashtable) threads.nextElement();
-						String subject = JSON.optValue(thread, "subject");
-						String comment = JSON.optValue(thread, "comment");
-						String num = JSON.optValue(thread, "num");
+					int l = th.size();
+					for(int i = 0; i < l; i++) {
+						JSONObject thread = th.getObject(i);
+						String subject = thread.getNullableString("subject");
+						String comment = thread.getNullableString("comment");
+						String num = thread.getNullableString("num");
 						boardFrm.append(subject + " #" + num + "\n");
 						boardFrm.append(comment + "\n");
 					}
@@ -198,17 +205,18 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		HttpConnection con = (HttpConnection) open(url);
 
 		InputStream is = null;
+		ByteArrayOutputStream o = null;
 		try {
 			con.setRequestMethod("GET");
 			con.getResponseCode();
 			is = con.openInputStream();
-			StringBuffer sb = new StringBuffer();
+			o = new ByteArrayOutputStream();
 			byte[] buf = new byte[256];
 			int len;
 			while ((len = is.read(buf)) != -1) {
-                sb.append(new String(buf, 0, len, "UTF-8"));
+               o.write(buf, 0, len);
 			}
-			result = sb.toString();
+			result = new String(o.toByteArray(), "UTF-8");
 		} catch (NullPointerException e) {
 			throw new IOException(e.toString());
 		} finally {
@@ -216,6 +224,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				is.close();
 			if (con != null)
 				con.close();
+			if (o != null)
+				o.close();
 		}
 	}
 
