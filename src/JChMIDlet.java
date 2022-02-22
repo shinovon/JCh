@@ -206,10 +206,10 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							JSONObject post = posts.getObject(i);
 							JSONArray files = post.getNullableArray("files");
 							System.out.println(post);
-							StringItem ts = new StringItem(post.getString("name", "") + " " + post.getString("date", "") + " #" + post.getString("num", ""), "");
+							StringItem ts = new StringItem(Util.text(post.getString("name", "")) + " " + post.getString("date", "") + " #" + post.getString("num", ""), "");
 							ts.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
 							threadFrm.append(ts);
-							threadFrm.append(post.getString("comment", "") + "\n");
+							threadFrm.append(Util.text(post.getString("comment", "")) + "\n");
 							if(files != null) {
 								int fl = files.size();
 								for(int fi = 0; fi < fl && fi < 5; fi++) {
