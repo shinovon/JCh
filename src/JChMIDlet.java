@@ -227,8 +227,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							threadFrm.append(text);
 							*/
 							String x = post.getString("comment", "");
-							RE r = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>)");
+							RE r = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>)");
 							RE r2 = new RE("(href=\"(.*?)\")");
+							RE r3 = new RE("(class=\"(.*?)\")");
 							//RE r3 = new RE("(data-num=\"(.*?)\")");
 							int ti;
 							int tl;
@@ -242,6 +243,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 								}
 								String w = r.getParen(0);
 								if(w.startsWith("<a")) {
+									// ссылка
 									String t = r.getParen(2);
 									// адрес
 									String link = null;
@@ -263,12 +265,58 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 									threadFrm.append(linkitem);
 									links.put(linkitem, link);
 								} else if(w.startsWith("<strong")) {
-									// текст
+									// жирный текст
 									String c = r.getParen(4);
 									StringItem bolditem = new StringItem(null, Util.htmlText(c));
 									bolditem.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
 									bolditem.setLayout(Item.LAYOUT_2);
 									threadFrm.append(bolditem);
+								} else if(w.startsWith("<b>")) {
+									// жирный текст
+									String c = r.getParen(5);
+									StringItem bolditem = new StringItem(null, Util.htmlText(c));
+									bolditem.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
+									bolditem.setLayout(Item.LAYOUT_2);
+									threadFrm.append(bolditem);
+								} else if(w.startsWith("<i>")) {
+									// жирный текст
+									String c = r.getParen(6);
+									StringItem bolditem = new StringItem(null, Util.htmlText(c));
+									bolditem.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
+									bolditem.setLayout(Item.LAYOUT_2);
+									threadFrm.append(bolditem);
+								} else if(w.startsWith("<em>")) {
+									// курсивный текст
+									String c = r.getParen(7);
+									StringItem textitem = new StringItem(null, Util.htmlText(c));
+									textitem.setFont(Font.getFont(0, Font.STYLE_ITALIC, Font.SIZE_SMALL));
+									textitem.setLayout(Item.LAYOUT_2);
+									threadFrm.append(textitem);
+								} else if(w.startsWith("<span")) {
+									String t = r.getParen(8);
+									String cls = null;
+									if(r3.match(t)) {
+										cls = r3.getParen(2);
+									}
+									String c = r.getParen(9);
+									StringItem textitem = new StringItem(null, Util.htmlText(c));
+									textitem.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
+									textitem.setLayout(Item.LAYOUT_2);
+									if(cls.equals("s")) {
+										// зачеркнутый текст, но в lcdui такого стиля шрифта нету
+									} else if(cls.equals("u")) {
+										// подчеркнутый текст
+										textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
+									} else if(cls.equals("o")) {
+										// надчеркнутый текст, но подчеркнутый из за lcdui
+										textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
+									} else if(cls.equals("spoiler")) {
+										// спойлер
+										textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
+									} else if(cls.equals("unkfunc")) {
+										// цитата
+									}
+									threadFrm.append(textitem);
 								}
 							}
 							if (ti < tl) {
