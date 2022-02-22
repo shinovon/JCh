@@ -233,7 +233,7 @@ public class Util {
 		return platform = System.getProperty("microedition.platform");
 	}
 
-	public static String text(String str) {
+	public static String htmlText(String str) {
 		char[] chars = str.toCharArray();
 		str = null;
 		try {
@@ -279,6 +279,17 @@ public class Util {
 											i += 6;
 											sb.append('\"');
 											break replaced;
+										}
+										break next;
+									case '#':
+										try {
+											if(chars[i + 4] == ';') {
+												String s = chars[i + 2] + "" + chars[i + 3];
+												sb.append((char)Integer.parseInt(s));
+												i += 5;
+												break replaced;
+											}
+										} catch (Exception e) {
 										}
 										break next;
 									default:
