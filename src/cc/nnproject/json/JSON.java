@@ -21,6 +21,9 @@ public final class JSON {
 	public final static boolean build_functions = true;
 	public final static String format_space = "  ";
 	public final static Object null_equivalent = new NullEquivalent();
+	
+	private static final Boolean TRUE = new Boolean(true);
+	private static final Boolean FALSE = new Boolean(false);
 
 	public static JSONObject getObject(String string) throws JSONException {
 		if (string == null || string.length() <= 1)
@@ -62,105 +65,34 @@ public final class JSON {
 			} else if (first == '"') {
 				// String
 				str = str.substring(1, str.length() - 1);
+				char[] chars = str.toCharArray();
+				str = null;
 				try {
-					int l = str.length();
+					int l = chars.length;
 					StringBuffer sb = new StringBuffer();
 					int i = 0;
 					// Parse string escape chars
 					loop: {
 						while (i < l) {
-							char c = str.charAt(i);
+							char c = chars[i];
 							switch (c) {
-							case '&': {
-								next: {
-									replaced: {
-										if(str.length() < i + 1) {
-											sb.append(c);
-											break loop;
-										}
-										try {
-											switch (str.charAt(i + 1)) {
-											case '4':
-												if(str.charAt(i + 2) == '7' && str.charAt(i + 3) == ';') {
-													i += 4;
-													sb.append('/');
-													break replaced;
-												}
-												break next;
-											case 'a':
-												if(str.charAt(i + 2) == 'm' && str.charAt(i + 3) == 'p' && str.charAt(i + 4) == ';') {
-													i += 5;
-													sb.append('&');
-													break replaced;
-												}
-												break next;
-											case 'l':
-												if(str.charAt(i + 2) == 't' && str.charAt(i + 3) == ';') {
-													i += 4;
-													sb.append('<');
-													break replaced;
-												}
-												break next;
-											case 'g':
-												if(str.charAt(i + 2) == 't' && str.charAt(i + 3) == ';') {
-													i += 4;
-													sb.append('>');
-													break replaced;
-												}
-												break next;
-											case 'q':
-												if(str.charAt(i + 2) == 'u' && str.charAt(i + 3) == 'o' && str.charAt(i + 4) == 't' && str.charAt(i + 5) == ';') {
-													i += 6;
-													sb.append('\"');
-													break replaced;
-												}
-												break next;
-											default:
-												break next;
-											}
-										} catch (Exception e) {
-											break next;
-										}
-									}
-									break;
-								}
-								sb.append(c);
-								i++;
-								break;
-							}
-							case '<' : {
-								if(str.length() < i + 1) {
-									sb.append(c);
-									break loop;
-								}
-								try {
-									if(str.charAt(i + 2) == 'b' && str.charAt(i + 3) == 'r' && str.charAt(i + 4) == '>') {
-										i += 4;
-										break;
-									}
-								} catch (Exception e) {
-								}
-								sb.append(c);
-								i++;
-								break;
-							}
 							case '\\': {
 								next: {
 									replaced: {
-										if(str.length() < i + 1) {
+										if(l < i + 1) {
 											sb.append(c);
 											break loop;
 										}
-										char c1 = str.charAt(i + 1);
+										char c1 = chars[i + 1];
 										switch (c1) {
 										case 'u':
-											i++;
-											String u = "" + str.charAt(i++) + str.charAt(i++) + str.charAt(i++) + str.charAt(i++);
+											i+=2;
+											String u = "" + chars[i++] + chars[i++] + chars[i++] + chars[i++];
 											sb.append((char) Integer.parseInt(u, 16));
 											break replaced;
 										case 'x':
-											i++;
-											String x = "" + str.charAt(i++) + str.charAt(i++);
+											i+=2;
+											String x = "" + chars[i++] + chars[i++];
 											sb.append((char) Integer.parseInt(x, 16));
 											break replaced;
 										case 'n':
@@ -207,7 +139,9 @@ public final class JSON {
 						}
 					}
 					str = sb.toString();
+					sb = null;
 				} catch (Exception e) {
+					e.printStackTrace();
 				}
 
 				return str;
@@ -215,9 +149,9 @@ public final class JSON {
 				if (str.equals("null"))
 					return null_equivalent;
 				if (str.equals("true"))
-					return Boolean.TRUE;
+					return TRUE;
 				if (str.equals("false"))
-					return Boolean.FALSE;
+					return FALSE;
 				if(str.charAt(0) == '0' && str.charAt(1) == 'x') {
 					try {
 						return new Integer(Integer.parseInt(str.substring(2), 16));
@@ -383,9 +317,9 @@ public final class JSON {
 			if (o instanceof Short)
 				return new Double(((Short)o).shortValue());
 			else if (o instanceof Integer)
-				return new Double(((Integer)o).doubleValue());
+				return new Double(((Integer)o).intValue());
 			else if (o instanceof Long)
-				return new Double(((Long)o).doubleValue());
+				return new Double(((Long)o).longValue());
 			else if (o instanceof Double)
 				return (Double) o;
 			//else if (o instanceof Float)

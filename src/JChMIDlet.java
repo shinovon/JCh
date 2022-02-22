@@ -1,16 +1,16 @@
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Vector;
 
-import javax.microedition.io.Connector;
-import javax.microedition.io.ContentConnection;
-import javax.microedition.io.HttpConnection;
 import javax.microedition.lcdui.Command;
 import javax.microedition.lcdui.CommandListener;
 import javax.microedition.lcdui.Display;
 import javax.microedition.lcdui.Displayable;
+import javax.microedition.lcdui.Font;
 import javax.microedition.lcdui.Form;
+import javax.microedition.lcdui.Image;
+import javax.microedition.lcdui.ImageItem;
 import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
 import javax.microedition.lcdui.StringItem;
@@ -28,7 +28,6 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static Command boardFieldCmd = new Command("Раздел", Command.OK, 0);
 	private static Command boardCmd = new Command("Треды", Command.OK, 0);
 	private static Command boardSearchCmd = new Command("Поиск", Command.OK, 0);
-	private static String platform;
 	private static Object result;
 	private static String version;
 	private Form mainFrm;
@@ -37,13 +36,42 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private String currentBoard;
 	private TextField boardSearchField;
 	private boolean started;
+	protected Command openThreadCmd = new Command("Открыть тему", Command.ITEM, 0);
+	protected Form threadFrm;
+	protected Command fileImgItemOpenCmd = new Command("Открыть файл", Command.ITEM, 0);
+	private Hashtable files = new Hashtable();
+	private Object thumbLoadLock = new Object();
+	protected boolean running = true;
+	private Vector thumbsToLoad = new Vector();
+	private Thread thumbLoaderThread = new Thread() {
+		public void run() {
+			try {
+				while(running) {
+					synchronized(thumbLoadLock) {
+						thumbLoadLock.wait();
+					}
+					int l;
+					while((l = thumbsToLoad.size()) > 0) {
+						int i = l - 1;
+						Object[] o = (Object[]) thumbsToLoad.elementAt(i);
+						thumbsToLoad.removeElementAt(i);
+						String path = (String) o[0];
+						ImageItem img = (ImageItem) o[1];
+						img.setImage(getImg(path));
+					}
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	};
 	
-	private static String version() {
+	static String version() {
 		return version;
 	}
 
 	public JChMIDlet() {
-		mainFrm = new Form("JCh - Главная");
+		mainFrm = new Form("Jch - Главная");
 		mainFrm.setCommandListener(this);
 		mainFrm.addCommand(exitCmd);
 		mainFrm.append(boardField = new TextField("", "", 8, TextField.ANY));
@@ -58,6 +86,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 
 	protected void destroyApp(boolean b) {
+		running = false;
 		notifyDestroyed();
 	}
 
@@ -73,6 +102,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		started = true;
 		Display.getDisplay(this).setCurrent(mainFrm);
 		loadBoards();
+		thumbLoaderThread.setPriority(2);
+		thumbLoaderThread.start();
 	}
 
 	private void loadBoards() {
@@ -109,8 +140,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 
 	public static void getResult(String string) throws Exception {
+		System.out.println(string);
 		result = null;
-		download(prepareUrl(string));
+		result = Util.getString(prepareUrl(string));
 		if(((String) result).charAt(0) == '{')
 			result = JSON.getObject((String) result);
 		else if(((String) result).charAt(0) == '[')
@@ -120,8 +152,16 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	public void commandAction(Command c, Displayable d) {
 		if(c == exitCmd)
 			destroyApp(false);
-		else if(c == backCmd)
-			Display.getDisplay(this).setCurrent(mainFrm);
+		else if(c == backCmd) {
+			if(d == boardFrm) {
+				Display.getDisplay(this).setCurrent(mainFrm);
+			} else if(d == threadFrm) {
+				Display.getDisplay(this).setCurrent(boardFrm);
+				files.clear();
+				thumbsToLoad.removeAllElements();
+				threadFrm = null;
+			}
+		}
 	}
 
 	public void commandAction(Command c, Item item) {
@@ -131,8 +171,77 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			if(item instanceof TextField)
 				board(((TextField)item).getString());
 			else if(item instanceof StringItem)
-				board(StringUtils.split(((StringItem)item).getText(), '/')[1]);
+				board(Util.split(((StringItem)item).getText(), '/')[1]);
+		} else if(c == openThreadCmd && item.getLabel().startsWith("#")) {
+			String s = item.getLabel().substring(1);
+			//s = s.substring(0, s.indexOf(" "));
+			final String id = s;
+			System.out.println("Thread: " + id);
+			new Thread() {
+				public void run() {
+					threadFrm = new Form("#" + id);
+					threadFrm.addCommand(backCmd);
+					threadFrm.setCommandListener(JChMIDlet.this);
+					display(threadFrm);
+					JSONObject j = null;
+					try {
+						getResult(currentBoard + "/res/" + id + ".json");
+						if(!(result instanceof JSONObject))
+							throw new RuntimeException("Result not object: " + result);
+						j = (JSONObject) result;
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+					threadFrm.setTitle("/" + j.getString("Board", "?") + "/ " + j.getString("title", ""));
+					System.out.println(j);
+					if(j == null || !(result instanceof JSONObject))
+						return;
+					JSONArray th = j.getNullableArray("threads");
+					if(th == null)
+						return;
+					JSONArray posts = th.getObject(0).getArray("posts");
+					try {
+						int l = posts.size();
+						for(int i = 0; i < l && i < 20; i++) {
+							JSONObject post = posts.getObject(i);
+							JSONArray files = post.getNullableArray("files");
+							System.out.println(post);
+							StringItem ts = new StringItem(post.getString("name", "") + " " + post.getString("date", "") + " #" + post.getString("num", ""), "");
+							ts.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
+							threadFrm.append(ts);
+							threadFrm.append(post.getString("comment", "") + "\n");
+							if(files != null) {
+								int fl = files.size();
+								for(int fi = 0; fi < fl && fi < 5; fi++) {
+									JSONObject file = files.getObject(fi);
+									String name = file.getString("displayname", file.getString("name", ""));
+									ImageItem fitem = new ImageItem(name, null, 0, name);
+									fitem.addCommand(fileImgItemOpenCmd);
+									fitem.setDefaultCommand(fileImgItemOpenCmd);
+									fitem.setItemCommandListener(JChMIDlet.this);
+									addFile(fitem, file.getString("path", null), file.getString("thumbnail", null));
+									threadFrm.append(fitem);
+								}
+							}
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+			}.start();
 		}
+	}
+
+	protected void addFile(ImageItem img, String path, String thumb) {
+		files.put(img, path);
+		thumbsToLoad.addElement(new Object[] { thumb, img });
+		synchronized(thumbLoadLock) {
+			thumbLoadLock.notifyAll();
+		}
+	}
+
+	protected void display(Displayable f) {
+		Display.getDisplay(this).setCurrent(f);
 	}
 
 	private void board(String txt) {
@@ -150,7 +259,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 	
 	private void createBoard(final String board) {
-		boardFrm = new Form("JCh - /" + board + "/");
+		boardFrm = new Form("Jch - /" + board + "/");
 		boardFrm.addCommand(backCmd);
 		boardFrm.setCommandListener(this);
 		boardFrm.append(boardSearchField = new TextField("","", 1000, TextField.ANY));
@@ -179,13 +288,16 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					return;
 				try {
 					int l = th.size();
-					for(int i = 0; i < l; i++) {
+					for(int i = 0; i < l && i < 20; i++) {
 						JSONObject thread = th.getObject(i);
-						String subject = thread.getNullableString("subject");
-						String comment = thread.getNullableString("comment");
-						String num = thread.getNullableString("num");
-						boardFrm.append(subject + " #" + num + "\n");
-						boardFrm.append(comment + "\n");
+						System.out.println(thread);
+						StringItem s = new StringItem("#" + thread.getString("num", ""),
+								Util.text(thread.getString("subject", "")));
+						s.addCommand(openThreadCmd);
+						s.setDefaultCommand(openThreadCmd);
+						s.setItemCommandListener(JChMIDlet.this);
+						boardFrm.append(s);
+						//boardFrm.append(Util.text(comment) + "\n");
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -194,57 +306,17 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		}.start();
 	}
 
-	private static String platform() {
-		if(platform != null)
-			return platform;
-		return platform = System.getProperty("microedition.platform");
-	}
-
-	public static void download(String url) throws IOException {
-		System.out.println("GET " + url);
-		HttpConnection con = (HttpConnection) open(url);
-
-		InputStream is = null;
-		ByteArrayOutputStream o = null;
-		try {
-			con.setRequestMethod("GET");
-			con.getResponseCode();
-			is = con.openInputStream();
-			o = new ByteArrayOutputStream();
-			byte[] buf = new byte[256];
-			int len;
-			while ((len = is.read(buf)) != -1) {
-               o.write(buf, 0, len);
-			}
-			result = new String(o.toByteArray(), "UTF-8");
-		} catch (NullPointerException e) {
-			throw new IOException(e.toString());
-		} finally {
-			if (is != null)
-				is.close();
-			if (con != null)
-				con.close();
-			if (o != null)
-				o.close();
-		}
-	}
-
-	public static ContentConnection open(String url) throws IOException {
-		try {
-			ContentConnection con = (ContentConnection) Connector.open(url, Connector.READ);
-			if (con instanceof HttpConnection)
-				((HttpConnection) con).setRequestProperty("User-Agent", "JCh/" + version() + " (" + platform() + ")");
-			return con;
-		} catch (IOException e) {
-			throw new IOException(StringUtils.cut(StringUtils.cut(e.toString(), "Exception"), "java.io.") + " "
-					+ url);
-		}
+	public static Image getImg(String url) throws IOException {
+		if(url.startsWith("/")) url = url.substring(1);
+		url = prepareUrl(url);
+		byte[] b = Util.get(url);
+		return Image.createImage(b, 0, b.length);
 	}
 
 	public static String prepareUrl(String url) {
 		if(url.endsWith("&") || url.endsWith("?"))
 			url = url.substring(0, url.length() - 1);
-		url = "http://nnproject.cc/proxy.php?" + URLEncoder.encode("https://2ch.hk/" + url);
+		url = "http://nnproject.cc/proxy.php?" + Util.encodeUrl("https://2ch.hk/" + url);
 		return url;
 	}
 
