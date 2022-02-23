@@ -13,6 +13,7 @@ import javax.microedition.lcdui.Image;
 import javax.microedition.lcdui.ImageItem;
 import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
+import javax.microedition.lcdui.Spacer;
 import javax.microedition.lcdui.StringItem;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.midlet.MIDlet;
@@ -28,10 +29,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static Command backCmd = new Command("Назад", Command.BACK, 0);
 	private static Command boardFieldCmd = new Command("Раздел", Command.OK, 0);
 	private static Command boardCmd = new Command("Треды", Command.OK, 0);
-	private static Command boardSearchCmd = new Command("Поиск", Command.OK, 0);
-	private static Command openThreadCmd = new Command("Открыть тему", Command.ITEM, 0);
+	private static Command boardSearchItemCmd = new Command("Поиск", Command.OK, 0);
+	private static Command openThreadCmd = new Command("Открыть тред", Command.ITEM, 0);
 	private static Command fileImgItemOpenCmd = new Command("Открыть файл", Command.ITEM, 0);
 	private static Command postLinkItemCmd = new Command("Открыть ссылку", Command.ITEM, 0);
+	private static Command postSpoilerItemCmd = new Command("Показать спойлер", Command.ITEM, 0);
 	private static Object result;
 	private static String version;
 	private Form mainFrm;
@@ -40,13 +42,22 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private TextField boardField;
 	private TextField boardSearchField;
 	
+	private static Font smallPlainFont = Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+	private static Font smallBoldFont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL);
+	private static Font smallItalicFont = Font.getFont(0, Font.STYLE_ITALIC, Font.SIZE_SMALL);
+	private static Font smallUnderlinedFont = Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL);
+	
 	private String currentBoard;
 
 	private boolean running = true;
 	private boolean started;
 	
+	private StringItem tempLoadingLabel;
+	private int loadingLabelIndex = -1;
+	
 	private Hashtable files = new Hashtable();
 	private Hashtable links = new Hashtable();
+	private Hashtable spoilers = new Hashtable();
 	
 	private Object thumbLoadLock = new Object();
 	private Vector thumbsToLoad = new Vector();
@@ -168,6 +179,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				Display.getDisplay(this).setCurrent(boardFrm);
 				files.clear();
 				links.clear();
+				spoilers.clear();
 				thumbsToLoad.removeAllElements();
 				threadFrm = null;
 			}
@@ -193,31 +205,46 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					threadFrm.addCommand(backCmd);
 					threadFrm.setCommandListener(JChMIDlet.this);
 					display(threadFrm);
+					addLoadingLabel(threadFrm);
 					JSONObject j = null;
 					try {
 						getResult(currentBoard + "/res/" + id + ".json");
-						if(!(result instanceof JSONObject))
+						if(!(result instanceof JSONObject)) {
+							/*
+							if(result instanceof String) {
+								if(result.toString().startsWith("<!DOCTYPE html>")) {
+									try {
+										if(platformRequest(prepareUrl(currentBoard + "/res/" + id + ".json", "http://nnproject.cc/glype/browse.php?u="))) {
+											//notifyDestroyed();
+										}
+									} catch (Exception e) {
+										e.printStackTrace();
+									}
+								}
+							}*/
 							throw new RuntimeException("Result not object: " + result);
+						}
 						j = (JSONObject) result;
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
 					threadFrm.setTitle("/" + j.getString("Board", "?") + "/ - " + Util.htmlText(j.getString("title", "")));
-					System.out.println(j);
 					if(j == null || !(result instanceof JSONObject))
 						return;
+					System.out.println(j);
 					JSONArray th = j.getNullableArray("threads");
 					if(th == null)
 						return;
 					JSONArray posts = th.getObject(0).getArray("posts");
 					try {
 						int l = posts.size();
+						removeLoadingLabel(threadFrm);
 						for(int i = 0; i < l && i < 30; i++) {
 							JSONObject post = posts.getObject(i);
 							JSONArray files = post.getNullableArray("files");
 							System.out.println(post);
 							StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + " " + post.getString("date", "") + " #" + post.getString("num", ""));
-							title.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
+							title.setFont(smallBoldFont);
 							title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
 							threadFrm.append(title);
 							/*
@@ -236,10 +263,20 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							for (ti = 0, tl = x.length(); ti < tl && r.match(x, ti); ti = r.getParenEnd(0)) {
 								String o = x.substring(ti, r.getParenStart(0));
 								if(o != null && !o.equals("")) {
-									StringItem textitem = new StringItem(null, Util.htmlText(o));
-									textitem.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
-									textitem.setLayout(Item.LAYOUT_2);
-									threadFrm.append(textitem);
+									o = Util.htmlText(o);
+									boolean b = o.endsWith(" ");
+									if(b) o = o.substring(0, o.length() - 1);
+									if(!o.equals("")) {
+										StringItem textitem = new StringItem(null, o);
+										textitem.setFont(smallPlainFont);
+										textitem.setLayout(Item.LAYOUT_2);
+										threadFrm.append(textitem);
+									}
+									if(b) {
+										Spacer s = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
+										s.setLayout(Item.LAYOUT_2);
+										threadFrm.append(s);
+									}
 								}
 								String w = r.getParen(0);
 								if(w.startsWith("<a")) {
@@ -255,9 +292,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 									//	datanum = r3.getParen(2);
 									//}
 									// текст
-									String c = r.getParen(3);
-									StringItem linkitem = new StringItem(null, Util.htmlText(c));
-									linkitem.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
+									String c = Util.htmlText(r.getParen(3));
+									StringItem linkitem = new StringItem(null, c);
+									linkitem.setFont(smallPlainFont);
 									linkitem.setLayout(Item.LAYOUT_2);
 									linkitem.addCommand(postLinkItemCmd);
 									linkitem.setDefaultCommand(postLinkItemCmd);
@@ -266,30 +303,30 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 									links.put(linkitem, link);
 								} else if(w.startsWith("<strong")) {
 									// жирный текст
-									String c = r.getParen(4);
-									StringItem bolditem = new StringItem(null, Util.htmlText(c));
-									bolditem.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
+									String c = Util.htmlText(r.getParen(4));
+									StringItem bolditem = new StringItem(null, c);
+									bolditem.setFont(smallBoldFont);
 									bolditem.setLayout(Item.LAYOUT_2);
 									threadFrm.append(bolditem);
 								} else if(w.startsWith("<b>")) {
 									// жирный текст
-									String c = r.getParen(5);
-									StringItem bolditem = new StringItem(null, Util.htmlText(c));
-									bolditem.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
+									String c = Util.htmlText(r.getParen(5));
+									StringItem bolditem = new StringItem(null, c);
+									bolditem.setFont(smallBoldFont);
 									bolditem.setLayout(Item.LAYOUT_2);
 									threadFrm.append(bolditem);
 								} else if(w.startsWith("<i>")) {
 									// жирный текст
-									String c = r.getParen(6);
-									StringItem bolditem = new StringItem(null, Util.htmlText(c));
-									bolditem.setFont(Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL));
+									String c = Util.htmlText(r.getParen(6));
+									StringItem bolditem = new StringItem(null, c);
+									bolditem.setFont(smallBoldFont);
 									bolditem.setLayout(Item.LAYOUT_2);
 									threadFrm.append(bolditem);
 								} else if(w.startsWith("<em>")) {
 									// курсивный текст
-									String c = r.getParen(7);
-									StringItem textitem = new StringItem(null, Util.htmlText(c));
-									textitem.setFont(Font.getFont(0, Font.STYLE_ITALIC, Font.SIZE_SMALL));
+									String c = Util.htmlText(r.getParen(7));
+									StringItem textitem = new StringItem(null, c);
+									textitem.setFont(smallItalicFont);
 									textitem.setLayout(Item.LAYOUT_2);
 									threadFrm.append(textitem);
 								} else if(w.startsWith("<span")) {
@@ -298,21 +335,26 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 									if(r3.match(t)) {
 										cls = r3.getParen(2);
 									}
-									String c = r.getParen(9);
-									StringItem textitem = new StringItem(null, Util.htmlText(c));
-									textitem.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
+									String c = Util.htmlText(r.getParen(9));
+									StringItem textitem = new StringItem(null, c);
+									textitem.setFont(smallPlainFont);
 									textitem.setLayout(Item.LAYOUT_2);
 									if(cls.equals("s")) {
 										// зачеркнутый текст, но в lcdui такого стиля шрифта нету
 									} else if(cls.equals("u")) {
 										// подчеркнутый текст
-										textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
+										textitem.setFont(smallUnderlinedFont);
 									} else if(cls.equals("o")) {
-										// надчеркнутый текст, но подчеркнутый из за lcdui
-										textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
+										// надчеркнутый текст
+										textitem.setFont(smallUnderlinedFont);
 									} else if(cls.equals("spoiler")) {
 										// спойлер
-										textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
+										textitem.setText("[спойлер]");
+										textitem.addCommand(postSpoilerItemCmd);
+										textitem.setDefaultCommand(postSpoilerItemCmd);
+										textitem.setItemCommandListener(JChMIDlet.this);
+										spoilers.put(textitem, c);
+										//textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
 									} else if(cls.equals("unkfunc")) {
 										// цитата
 									}
@@ -322,8 +364,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							if (ti < tl) {
 								String o = x.substring(ti);
 								if(o != null && !o.equals("")) {
-									StringItem textitem = new StringItem(null, Util.htmlText(o));
-									textitem.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
+									StringItem textitem = new StringItem(null, o = Util.htmlText(o));
+									textitem.setFont(smallPlainFont);
 									textitem.setLayout(Item.LAYOUT_2);
 									threadFrm.append(textitem);
 								}
@@ -345,6 +387,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						}
 					} catch (Exception e) {
 						e.printStackTrace();
+						removeLoadingLabel(threadFrm);
+						addLoadingLabel(threadFrm, "Ошибка!");
+						boardFrm.append(e.toString());
 					}
 				}
 			}.start();
@@ -379,6 +424,17 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						e.printStackTrace();
 					}
 				}
+			}
+		} else if(c == boardSearchItemCmd) {
+			//String q = ((TextField)item).getString();
+		} else if(c == postSpoilerItemCmd) {
+			String t = (String) spoilers.get(item);
+			if(t != null) {
+				StringItem s = ((StringItem) item);
+				s.setText(t);
+				s.setDefaultCommand(null);
+				s.setItemCommandListener(null);
+				s.removeCommand(postSpoilerItemCmd);
 			}
 		}
 	}
@@ -416,8 +472,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		boardFrm.setCommandListener(this);
 		boardFrm.append(boardSearchField = new TextField("","", 1000, TextField.ANY));
 		boardSearchField.setLabel("Поиск");
-		boardSearchField.addCommand(boardSearchCmd);
+		boardSearchField.addCommand(boardSearchItemCmd);
 		boardSearchField.setItemCommandListener(this);
+		addLoadingLabel(boardFrm);
 		/*StringItem btn = new StringItem("Поиск", "", StringItem.BUTTON);
 		btn.setDefaultCommand(boardSearchCmd);
 		btn.setItemCommandListener(this);
@@ -440,6 +497,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					return;
 				try {
 					int l = th.size();
+					removeLoadingLabel(boardFrm);
 					for(int i = 0; i < l && i < 20; i++) {
 						JSONObject thread = th.getObject(i);
 						System.out.println(thread);
@@ -453,9 +511,31 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
+					removeLoadingLabel(boardFrm);
+					addLoadingLabel(boardFrm, "Ошибка!");
+					boardFrm.append(e.toString());
 				}
 			}
 		}.start();
+	}
+
+	private void addLoadingLabel(Form f) {
+		addLoadingLabel(f, "Загрузка...");
+	}
+
+	private void addLoadingLabel(Form f, String s) {
+		tempLoadingLabel = new StringItem(null, s);
+		tempLoadingLabel.setFont(smallPlainFont);
+		tempLoadingLabel.setLayout(Item.LAYOUT_CENTER);
+		loadingLabelIndex = f.append(tempLoadingLabel);
+	}
+
+	private void removeLoadingLabel(Form f) {
+		if(tempLoadingLabel != null && loadingLabelIndex != -1) {
+			f.delete(loadingLabelIndex);
+			tempLoadingLabel = null;
+			loadingLabelIndex = -1;
+		}
 	}
 
 	public static Image getImg(String url) throws IOException {
