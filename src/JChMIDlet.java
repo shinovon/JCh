@@ -84,6 +84,16 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		}
 	};
 	
+	private static final RE htmlRe;
+	private static final RE hrefRe;
+	private static final RE classRe;
+	
+	static {
+		htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>)");
+		hrefRe = new RE("(href=\"(.*?)\")");
+		classRe = new RE("(class=\"(.*?)\")");
+	}
+	
 	static String version() {
 		return version;
 	}
@@ -163,9 +173,10 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		System.out.println(string);
 		result = null;
 		result = Util.getString(prepareUrl(string));
-		if(((String) result).charAt(0) == '{')
+		char c = ((String) result).charAt(0);
+		if(c == '{')
 			result = JSON.getObject((String) result);
-		else if(((String) result).charAt(0) == '[')
+		else if(c == '[')
 			result = JSON.getArray((String) result);
 	}
 
@@ -225,18 +236,14 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							throw new RuntimeException("Result not object: " + result);
 						}
 						j = (JSONObject) result;
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-					threadFrm.setTitle("/" + j.getString("Board", "?") + "/ - " + Util.htmlText(j.getString("title", "")));
-					if(j == null || !(result instanceof JSONObject))
-						return;
-					System.out.println(j);
-					JSONArray th = j.getNullableArray("threads");
-					if(th == null)
-						return;
-					JSONArray posts = th.getObject(0).getArray("posts");
-					try {
+						if(j == null || !(result instanceof JSONObject))
+							return;
+						System.out.println(j);
+						threadFrm.setTitle("/" + j.getString("Board", "?") + "/ - " + Util.htmlText(j.getString("title", "")));
+						JSONArray th = j.getNullableArray("threads");
+						if(th == null)
+							return;
+						JSONArray posts = th.getObject(0).getArray("posts");
 						int l = posts.size();
 						removeLoadingLabel(threadFrm);
 						for(int i = 0; i < l && i < 30; i++) {
@@ -253,123 +260,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							text.setLayout(Item.LAYOUT_NEWLINE_AFTER);
 							threadFrm.append(text);
 							*/
-							String x = post.getString("comment", "");
-							RE r = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>)");
-							RE r2 = new RE("(href=\"(.*?)\")");
-							RE r3 = new RE("(class=\"(.*?)\")");
-							//RE r3 = new RE("(data-num=\"(.*?)\")");
-							int ti;
-							int tl;
-							for (ti = 0, tl = x.length(); ti < tl && r.match(x, ti); ti = r.getParenEnd(0)) {
-								String o = x.substring(ti, r.getParenStart(0));
-								if(o != null && !o.equals("")) {
-									o = Util.htmlText(o);
-									boolean b = o.endsWith(" ");
-									if(b) o = o.substring(0, o.length() - 1);
-									if(!o.equals("")) {
-										StringItem textitem = new StringItem(null, o);
-										textitem.setFont(smallPlainFont);
-										textitem.setLayout(Item.LAYOUT_2);
-										threadFrm.append(textitem);
-									}
-									if(b) {
-										Spacer s2 = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
-										s2.setLayout(Item.LAYOUT_2);
-										threadFrm.append(s2);
-									}
-								}
-								String w = r.getParen(0);
-								if(w.startsWith("<a")) {
-									// ссылка
-									String t = r.getParen(2);
-									// адрес
-									String link = null;
-									//String datanum = null;
-									if(r2.match(t)) {
-										link = r2.getParen(2);
-									}
-									//if(r3.match(t)) {
-									//	datanum = r3.getParen(2);
-									//}
-									// текст
-									String c = Util.htmlText(r.getParen(3));
-									StringItem linkitem = new StringItem(null, c);
-									linkitem.setFont(smallPlainFont);
-									linkitem.setLayout(Item.LAYOUT_2);
-									linkitem.addCommand(postLinkItemCmd);
-									linkitem.setDefaultCommand(postLinkItemCmd);
-									linkitem.setItemCommandListener(JChMIDlet.this);
-									threadFrm.append(linkitem);
-									links.put(linkitem, link);
-								} else if(w.startsWith("<strong")) {
-									// жирный текст
-									String c = Util.htmlText(r.getParen(4));
-									StringItem bolditem = new StringItem(null, c);
-									bolditem.setFont(smallBoldFont);
-									bolditem.setLayout(Item.LAYOUT_2);
-									threadFrm.append(bolditem);
-								} else if(w.startsWith("<b>")) {
-									// жирный текст
-									String c = Util.htmlText(r.getParen(5));
-									StringItem bolditem = new StringItem(null, c);
-									bolditem.setFont(smallBoldFont);
-									bolditem.setLayout(Item.LAYOUT_2);
-									threadFrm.append(bolditem);
-								} else if(w.startsWith("<i>")) {
-									// жирный текст
-									String c = Util.htmlText(r.getParen(6));
-									StringItem bolditem = new StringItem(null, c);
-									bolditem.setFont(smallBoldFont);
-									bolditem.setLayout(Item.LAYOUT_2);
-									threadFrm.append(bolditem);
-								} else if(w.startsWith("<em>")) {
-									// курсивный текст
-									String c = Util.htmlText(r.getParen(7));
-									StringItem textitem = new StringItem(null, c);
-									textitem.setFont(smallItalicFont);
-									textitem.setLayout(Item.LAYOUT_2);
-									threadFrm.append(textitem);
-								} else if(w.startsWith("<span")) {
-									String t = r.getParen(8);
-									String cls = null;
-									if(r3.match(t)) {
-										cls = r3.getParen(2);
-									}
-									String c = Util.htmlText(r.getParen(9));
-									StringItem textitem = new StringItem(null, c);
-									textitem.setFont(smallPlainFont);
-									textitem.setLayout(Item.LAYOUT_2);
-									if(cls.equals("s")) {
-										// зачеркнутый текст, но в lcdui такого стиля шрифта нету
-									} else if(cls.equals("u")) {
-										// подчеркнутый текст
-										textitem.setFont(smallUnderlinedFont);
-									} else if(cls.equals("o")) {
-										// надчеркнутый текст
-										textitem.setFont(smallUnderlinedFont);
-									} else if(cls.equals("spoiler")) {
-										// спойлер
-										textitem.setText("[спойлер]");
-										textitem.addCommand(postSpoilerItemCmd);
-										textitem.setDefaultCommand(postSpoilerItemCmd);
-										textitem.setItemCommandListener(JChMIDlet.this);
-										spoilers.put(textitem, c);
-										//textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
-									} else if(cls.equals("unkfunc")) {
-										// цитата
-									}
-									threadFrm.append(textitem);
-								}
-							}
-							if (ti < tl) {
-								String o = x.substring(ti);
-								if(o != null && !o.equals("")) {
-									StringItem textitem = new StringItem(null, o = Util.htmlText(o));
-									textitem.setFont(smallPlainFont);
-									textitem.setLayout(Item.LAYOUT_2);
-									threadFrm.append(textitem);
-								}
-					        }
+							parseHtmlText(threadFrm, post.getString("comment", ""));
+							
 							if(files != null) {
 								int fl = files.size();
 								for(int fi = 0; fi < fl && fi < 5; fi++) {
@@ -392,7 +284,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						e.printStackTrace();
 						removeLoadingLabel(threadFrm);
 						addLoadingLabel(threadFrm, "Ошибка!");
-						boardFrm.append(e.toString());
+						threadFrm.append(e.toString());
 					}
 				}
 			}.start();
@@ -440,6 +332,121 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				//s.removeCommand(postSpoilerItemCmd);
 			}
 		}
+	}
+
+	protected void parseHtmlText(Form f, String s) {
+		int ti;
+		int tl;
+		for (ti = 0, tl = s.length(); ti < tl && htmlRe.match(s, ti); ti = htmlRe.getParenEnd(0)) {
+			String o = s.substring(ti, htmlRe.getParenStart(0));
+			if(o != null && o.length() > 0) {
+				o = Util.htmlText(o);
+				boolean b = o.endsWith(" ");
+				if(b) o = o.substring(0, o.length() - 1);
+				if(o.length() > 0) {
+					StringItem textitem = new StringItem(null, o);
+					textitem.setFont(smallPlainFont);
+					textitem.setLayout(Item.LAYOUT_2);
+					f.append(textitem);
+				}
+				if(b) {
+					Spacer s2 = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
+					s2.setLayout(Item.LAYOUT_2);
+					f.append(s2);
+				}
+			}
+			String w = htmlRe.getParen(0);
+			if(w.startsWith("<a")) {
+				// ссылка
+				String t = htmlRe.getParen(2);
+				String link = null;
+				if(hrefRe.match(t)) {
+					link = hrefRe.getParen(2);
+				}
+				String c = htmlRe.getParen(3);
+				c = Util.htmlText(c);
+				StringItem linkitem = new StringItem(null, c);
+				linkitem.setFont(smallPlainFont);
+				linkitem.setLayout(Item.LAYOUT_2);
+				linkitem.addCommand(postLinkItemCmd);
+				linkitem.setDefaultCommand(postLinkItemCmd);
+				linkitem.setItemCommandListener(JChMIDlet.this);
+				f.append(linkitem);
+				links.put(linkitem, link);
+			} else if(w.startsWith("<strong>")) {
+				// жирный текст
+				String c = htmlRe.getParen(4);
+				c = Util.htmlText(c);
+				StringItem bolditem = new StringItem(null, c);
+				bolditem.setFont(smallBoldFont);
+				bolditem.setLayout(Item.LAYOUT_2);
+				f.append(bolditem);
+			} else if(w.startsWith("<b>")) {
+				// жирный текст
+				String c = htmlRe.getParen(5);
+				c = Util.htmlText(c);
+				StringItem bolditem = new StringItem(null, c);
+				bolditem.setFont(smallBoldFont);
+				bolditem.setLayout(Item.LAYOUT_2);
+				f.append(bolditem);
+			} else if(w.startsWith("<i>")) {
+				// жирный текст
+				String c = htmlRe.getParen(6);
+				c = Util.htmlText(c);
+				StringItem bolditem = new StringItem(null, c);
+				bolditem.setFont(smallBoldFont);
+				bolditem.setLayout(Item.LAYOUT_2);
+				f.append(bolditem);
+			} else if(w.startsWith("<em>")) {
+				// курсивный текст
+				String c = htmlRe.getParen(7);
+				c = Util.htmlText(c);
+				StringItem textitem = new StringItem(null, c);
+				textitem.setFont(smallItalicFont);
+				textitem.setLayout(Item.LAYOUT_2);
+				f.append(textitem);
+			} else if(w.startsWith("<span")) {
+				String t = htmlRe.getParen(8);
+				String cls = null;
+				if(classRe.match(t)) {
+					cls = classRe.getParen(2);
+				}
+				String c = htmlRe.getParen(9);
+				c = Util.htmlText(c);
+				StringItem textitem = new StringItem(null, c);
+				textitem.setFont(smallPlainFont);
+				textitem.setLayout(Item.LAYOUT_2);
+				if(cls.equals("s")) {
+					// зачеркнутый текст, но в lcdui такого стиля шрифта нету
+				} else if(cls.equals("u")) {
+					// подчеркнутый текст
+					textitem.setFont(smallUnderlinedFont);
+				} else if(cls.equals("o")) {
+					// надчеркнутый текст
+					textitem.setFont(smallUnderlinedFont);
+				} else if(cls.equals("spoiler")) {
+					// спойлер
+					textitem.setText("[спойлер]");
+					textitem.addCommand(postSpoilerItemCmd);
+					textitem.setDefaultCommand(postSpoilerItemCmd);
+					textitem.setItemCommandListener(JChMIDlet.this);
+					spoilers.put(textitem, c);
+					//textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
+				} else if(cls.equals("unkfunc")) {
+					// цитата
+				}
+				f.append(textitem);
+			}
+		}
+		if (ti < tl) {
+			String o = s.substring(ti);
+			if(o != null && !o.equals("")) {
+				StringItem textitem = new StringItem(null, o = Util.htmlText(o));
+				textitem.setFont(smallPlainFont);
+				textitem.setLayout(Item.LAYOUT_2);
+				f.append(textitem);
+			}
+        }
 	}
 
 	protected void addFile(ImageItem img, String path, String thumb) {
@@ -490,15 +497,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					if(!(result instanceof JSONObject))
 						throw new RuntimeException("Result not object: " + result);
 					j = (JSONObject) result;
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-				if(j == null || !(result instanceof JSONObject))
-					return;
-				JSONArray th = j.getNullableArray("threads");
-				if(th == null)
-					return;
-				try {
+					if(j == null || !(result instanceof JSONObject))
+						return;
+					JSONArray th = j.getNullableArray("threads");
+					if(th == null)
+						return;
 					int l = th.size();
 					removeLoadingLabel(boardFrm);
 					for(int i = 0; i < l && i < 20; i++) {
