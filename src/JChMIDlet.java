@@ -273,9 +273,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 										threadFrm.append(textitem);
 									}
 									if(b) {
-										Spacer s = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
-										s.setLayout(Item.LAYOUT_2);
-										threadFrm.append(s);
+										Spacer s2 = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
+										s2.setLayout(Item.LAYOUT_2);
+										threadFrm.append(s2);
 									}
 								}
 								String w = r.getParen(0);
@@ -376,7 +376,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 									JSONObject file = files.getObject(fi);
 									String name = file.getString("displayname", file.getString("name", ""));
 									ImageItem fitem = new ImageItem(name, null, 0, name);
-									fitem.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+									fitem.setLayout(Item.LAYOUT_NEWLINE_BEFORE);
 									fitem.addCommand(fileImgItemOpenCmd);
 									fitem.setDefaultCommand(fileImgItemOpenCmd);
 									fitem.setItemCommandListener(JChMIDlet.this);
@@ -384,6 +384,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 									threadFrm.append(fitem);
 								}
 							}
+							Spacer s = new Spacer(2, 20);
+							s.setLayout(Item.LAYOUT_2);
+							threadFrm.append(s);
 						}
 					} catch (Exception e) {
 						e.printStackTrace();
@@ -432,9 +435,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			if(t != null) {
 				StringItem s = ((StringItem) item);
 				s.setText(t);
-				s.setDefaultCommand(null);
+				//s.setDefaultCommand(null);
 				s.setItemCommandListener(null);
-				s.removeCommand(postSpoilerItemCmd);
+				//s.removeCommand(postSpoilerItemCmd);
 			}
 		}
 	}
