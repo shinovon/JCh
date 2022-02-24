@@ -36,6 +36,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static Command postSpoilerItemCmd = new Command("Показать спойлер", Command.ITEM, 0);
 	private static Object result;
 	private static String version;
+	
+	private static Display display;
 	private Form mainFrm;
 	private Form boardFrm;
 	private Form threadFrm;
@@ -48,6 +50,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static Font smallUnderlinedFont = Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL);
 	
 	private String currentBoard;
+	private String currentThread;
 
 	private boolean running = true;
 	private boolean started;
@@ -58,6 +61,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private Hashtable files = new Hashtable();
 	private Hashtable links = new Hashtable();
 	private Hashtable spoilers = new Hashtable();
+	private Hashtable comments = new Hashtable();
 	
 	private Object thumbLoadLock = new Object();
 	private Vector thumbsToLoad = new Vector();
@@ -83,6 +87,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			}
 		}
 	};
+	private Thread lastThread;
 	
 	private static final RE htmlRe;
 	private static final RE hrefRe;
@@ -128,7 +133,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		if(version == null)
 			version = getAppProperty("MIDlet-Version");
 		started = true;
-		Display.getDisplay(this).setCurrent(mainFrm);
+		display = Display.getDisplay(this);
+		display.setCurrent(mainFrm);
 		if(false)
 		loadBoards();
 		thumbLoaderThread.setPriority(2);
@@ -185,12 +191,13 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			destroyApp(false);
 		else if(c == backCmd) {
 			if(d == boardFrm) {
-				Display.getDisplay(this).setCurrent(mainFrm);
+				display.setCurrent(mainFrm);
 			} else if(d == threadFrm) {
-				Display.getDisplay(this).setCurrent(boardFrm);
+				display.setCurrent(boardFrm);
 				files.clear();
 				links.clear();
 				spoilers.clear();
+				comments.clear();
 				thumbsToLoad.removeAllElements();
 				threadFrm = null;
 			}
@@ -208,86 +215,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		} else if(c == openThreadCmd && item.getLabel().startsWith("#")) {
 			String s = item.getLabel().substring(1);
 			//s = s.substring(0, s.indexOf(" "));
-			final String id = s;
-			System.out.println("Thread: " + id);
-			new Thread() {
-				public void run() {
-					threadFrm = new Form("#" + id);
-					threadFrm.addCommand(backCmd);
-					threadFrm.setCommandListener(JChMIDlet.this);
-					display(threadFrm);
-					addLoadingLabel(threadFrm);
-					JSONObject j = null;
-					try {
-						getResult(currentBoard + "/res/" + id + ".json");
-						if(!(result instanceof JSONObject)) {
-							/*
-							if(result instanceof String) {
-								if(result.toString().startsWith("<!DOCTYPE html>")) {
-									try {
-										if(platformRequest(prepareUrl(currentBoard + "/res/" + id + ".json", "http://nnproject.cc/glype/browse.php?u="))) {
-											//notifyDestroyed();
-										}
-									} catch (Exception e) {
-										e.printStackTrace();
-									}
-								}
-							}*/
-							throw new RuntimeException("Result not object: " + result);
-						}
-						j = (JSONObject) result;
-						if(j == null || !(result instanceof JSONObject))
-							return;
-						System.out.println(j);
-						threadFrm.setTitle("/" + j.getString("Board", "?") + "/ - " + Util.htmlText(j.getString("title", "")));
-						JSONArray th = j.getNullableArray("threads");
-						if(th == null)
-							return;
-						JSONArray posts = th.getObject(0).getArray("posts");
-						int l = posts.size();
-						removeLoadingLabel(threadFrm);
-						for(int i = 0; i < l && i < 30; i++) {
-							JSONObject post = posts.getObject(i);
-							JSONArray files = post.getNullableArray("files");
-							System.out.println(post);
-							StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + " " + post.getString("date", "") + " #" + post.getString("num", ""));
-							title.setFont(smallBoldFont);
-							title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-							threadFrm.append(title);
-							/*
-							StringItem text = new StringItem(null, Util.text(post.getString("comment", "")));
-							text.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
-							text.setLayout(Item.LAYOUT_NEWLINE_AFTER);
-							threadFrm.append(text);
-							*/
-							parseHtmlText(threadFrm, post.getString("comment", ""));
-							
-							if(files != null) {
-								int fl = files.size();
-								for(int fi = 0; fi < fl && fi < 5; fi++) {
-									JSONObject file = files.getObject(fi);
-									String name = file.getString("displayname", file.getString("name", ""));
-									ImageItem fitem = new ImageItem(name, null, 0, name);
-									fitem.setLayout(Item.LAYOUT_NEWLINE_BEFORE);
-									fitem.addCommand(fileImgItemOpenCmd);
-									fitem.setDefaultCommand(fileImgItemOpenCmd);
-									fitem.setItemCommandListener(JChMIDlet.this);
-									addFile(fitem, file.getString("path", null), file.getString("thumbnail", null));
-									threadFrm.append(fitem);
-								}
-							}
-							Spacer s = new Spacer(2, 20);
-							s.setLayout(Item.LAYOUT_2);
-							threadFrm.append(s);
-						}
-					} catch (Exception e) {
-						e.printStackTrace();
-						removeLoadingLabel(threadFrm);
-						addLoadingLabel(threadFrm, "Ошибка!");
-						threadFrm.append(e.toString());
-					}
-				}
-			}.start();
+			openThread(s);
 		} else if(c == fileImgItemOpenCmd) {
 			String path = (String) files.get(item);
 			if(path != null) {
@@ -301,14 +229,36 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			}
 		} else if(c == postLinkItemCmd) {
 			String path = (String) links.get(item);
+			System.out.println("Link: " + path);
 			if(path != null) {
-				if(path.startsWith("/")) {
-					try {
-						if(platformRequest(prepareUrl(path, "http://nnproject.cc/glype/browse.php?u="))) {
-							//notifyDestroyed();
+				if(path.startsWith("/") || path.startsWith("https://2ch.hk/")) {
+					if(path.indexOf("/res/") != -1 && path.indexOf(".html") != -1) {
+						String tid = path;
+						tid = tid.substring(tid.indexOf("/res/") + "/res/".length(), tid.indexOf(".html"));
+						System.out.println(tid);
+						if(path.indexOf("html#") != -1 && currentThread != null && tid.equals(currentThread)) {
+							String cid = path;
+							cid = cid.substring(cid.indexOf("html#") + "html#".length());
+							System.out.println(cid);
+							Item i = (Item) comments.get(cid);
+							if(i != null) {
+								try {
+									display.setCurrentItem(i);
+								} catch(Throwable e) {
+								}
+							}
+						} else {
+							if(currentThread != null && currentThread.equalsIgnoreCase(tid)) return;
+							openThread(tid);
 						}
-					} catch (Exception e) {
-						e.printStackTrace();
+					} else {
+						try {
+							if(platformRequest(prepareUrl(path, "http://nnproject.cc/glype/browse.php?u="))) {
+								//notifyDestroyed();
+							}
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
 					}
 				} else {
 					try {
@@ -332,6 +282,109 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				//s.removeCommand(postSpoilerItemCmd);
 			}
 		}
+	}
+
+	private void openThread(final String id) {
+		if(lastThread != null && lastThread.isAlive()) {
+			lastThread.interrupt();
+			lastThread = null;
+		}
+		System.out.println("Thread: " + id);
+		currentThread = id;
+		Thread t = lastThread = new Thread() {
+			public void run() {
+				threadFrm = new Form("#" + id);
+				threadFrm.addCommand(backCmd);
+				threadFrm.setCommandListener(JChMIDlet.this);
+				display(threadFrm);
+				addLoadingLabel(threadFrm);
+				JSONObject j = null;
+				try {
+					try {
+						getResult(currentBoard + "/res/" + id + ".json");
+					} catch (IOException e) {
+						if(e.getMessage().startsWith("404")) {
+							getResult(currentBoard + "/arch/res/" + id + ".json");
+						} else throw e;
+					}
+					if(!(result instanceof JSONObject)) {
+						/*
+						if(result instanceof String) {
+							if(result.toString().startsWith("<!DOCTYPE html>")) {
+								try {
+									if(platformRequest(prepareUrl(currentBoard + "/res/" + id + ".json", "http://nnproject.cc/glype/browse.php?u="))) {
+										//notifyDestroyed();
+									}
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
+							}
+						}*/
+						throw new RuntimeException("Result not object: " + result);
+					}
+					j = (JSONObject) result;
+					if(j == null || !(result instanceof JSONObject))
+						return;
+					//System.out.println(j);
+					threadFrm.setTitle("/" + j.getString("Board", "?") + "/ - " + Util.htmlText(j.getString("title", "")));
+					JSONArray th = j.getNullableArray("threads");
+					if(th == null)
+						return;
+					JSONArray posts = th.getObject(0).getArray("posts");
+					int l = posts.size();
+					if(threadFrm != null) removeLoadingLabel(threadFrm);
+					else return;
+					for(int i = 0; i < l /*&& i < 30*/; i++) {
+						JSONObject post = posts.getObject(i);
+						JSONArray files = post.getNullableArray("files");
+						//System.out.println(post);
+						String num = post.getString("num", "");
+						StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + " " + post.getString("date", "") + " #" + num);
+						title.setFont(smallBoldFont);
+						title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+						comments.put(num, title);
+						threadFrm.append(title);
+						/*
+						StringItem text = new StringItem(null, Util.text(post.getString("comment", "")));
+						text.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
+						text.setLayout(Item.LAYOUT_NEWLINE_AFTER);
+						threadFrm.append(text);
+						*/
+						parseHtmlText(threadFrm, post.getString("comment", ""));
+						
+						if(files != null) {
+							int fl = files.size();
+							for(int fi = 0; fi < fl && fi < 5; fi++) {
+								JSONObject file = files.getObject(fi);
+								String name = file.getString("displayname", file.getString("name", ""));
+								ImageItem fitem = new ImageItem(name, null, 0, name);
+								fitem.setLayout(Item.LAYOUT_NEWLINE_BEFORE);
+								fitem.addCommand(fileImgItemOpenCmd);
+								fitem.setDefaultCommand(fileImgItemOpenCmd);
+								fitem.setItemCommandListener(JChMIDlet.this);
+								addFile(fitem, file.getString("path", null), file.getString("thumbnail", null));
+								threadFrm.append(fitem);
+							}
+						}
+						Spacer s = new Spacer(2, 20);
+						s.setLayout(Item.LAYOUT_2);
+						threadFrm.append(s);
+					}
+				} catch (InterruptedException e) {
+				} catch (Exception e) {
+					e.printStackTrace();
+					if(threadFrm != null) {
+						removeLoadingLabel(threadFrm);
+						addLoadingLabel(threadFrm, "Ошибка!");
+						StringItem s = new StringItem("", e.toString());
+						s.setLayout(Item.LAYOUT_LEFT);
+						threadFrm.append(s);
+					}
+				}
+			}
+		};
+		t.start();
+		
 	}
 
 	protected void parseHtmlText(Form f, String s) {
@@ -362,6 +415,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				String link = null;
 				if(hrefRe.match(t)) {
 					link = hrefRe.getParen(2);
+					//System.out.println(link);
+					link = Util.htmlText(link);
 				}
 				String c = htmlRe.getParen(3);
 				c = Util.htmlText(c);
@@ -458,7 +513,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 
 	protected void display(Displayable f) {
-		Display.getDisplay(this).setCurrent(f);
+		display.setCurrent(f);
 	}
 
 	private void board(String txt) {
@@ -473,7 +528,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		currentBoard = board;
 		System.out.println("Board: " + board);
 		createBoard(board);
-		Display.getDisplay(this).setCurrent(boardFrm);
+		display.setCurrent(boardFrm);
 	}
 	
 	private void createBoard(final String board) {
@@ -489,7 +544,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		btn.setDefaultCommand(boardSearchCmd);
 		btn.setItemCommandListener(this);
 		boardFrm.append(btn);*/
-		new Thread() {
+		Thread t = lastThread = new Thread() {
 			public void run() {
 				JSONObject j = null;
 				try {
@@ -506,7 +561,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					removeLoadingLabel(boardFrm);
 					for(int i = 0; i < l && i < 20; i++) {
 						JSONObject thread = th.getObject(i);
-						System.out.println(thread);
+						//System.out.println(thread);
 						StringItem s = new StringItem("#" + thread.getString("num", ""),
 								Util.htmlText(thread.getString("subject", "")));
 						s.addCommand(openThreadCmd);
@@ -515,14 +570,21 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						boardFrm.append(s);
 						//boardFrm.append(Util.text(comment) + "\n");
 					}
+				} catch (InterruptedException e) {
 				} catch (Exception e) {
 					e.printStackTrace();
-					removeLoadingLabel(boardFrm);
-					addLoadingLabel(boardFrm, "Ошибка!");
-					boardFrm.append(e.toString());
+					try {
+						removeLoadingLabel(boardFrm);
+						addLoadingLabel(boardFrm, "Ошибка!");
+						StringItem s = new StringItem("", e.toString());
+						s.setLayout(Item.LAYOUT_LEFT);
+						boardFrm.append(s);
+					} catch (NullPointerException e2) {
+					}
 				}
 			}
-		}.start();
+		};
+		t.start();
 	}
 
 	private void addLoadingLabel(Form f) {
@@ -551,7 +613,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 
 	public static String prepareUrl(String url) {
-		return prepareUrl(url, "http://nnproject.cc/proxy.php?");
+		return prepareUrl(url, "http://nnproject.cc/hproxy.php?");
 	}
 
 	public static String prepareUrl(String url, String proxy) {

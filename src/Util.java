@@ -6,9 +6,21 @@ import java.util.Vector;
 import javax.microedition.io.Connector;
 import javax.microedition.io.ContentConnection;
 import javax.microedition.io.HttpConnection;
+import javax.microedition.rms.RecordStore;
 
 public class Util {
 	private static String platform;
+	private static String cookie;
+	
+	static {
+		try {
+			RecordStore r = RecordStore.openRecordStore("jch_cookie", false);
+			byte[] b = r.getRecord(1);
+			r.closeRecordStore();
+			cookie = new String(b);
+		} catch (Exception e) {
+		}
+	}
 
 	public static String replace(String str, String from, String to) {
 		int j = str.indexOf(from);
@@ -177,28 +189,74 @@ public class Util {
 
 	public static byte[] get(String url) throws IOException {
 		System.out.println("GET " + url);
-		HttpConnection con = (HttpConnection) open(url);
+		HttpConnection hc = (HttpConnection) open(url);
 
 		InputStream is = null;
 		ByteArrayOutputStream o = null;
 		try {
-			con.setRequestMethod("GET");
-			con.getResponseCode();
-			is = con.openInputStream();
+			hc.setRequestMethod("GET");
+			if(cookie != null) {
+				hc.setRequestProperty("Cookie", cookie);
+			}
+			//hc.setRequestProperty("Accept-Encoding", "identity");
+			int r = hc.getResponseCode();
+			if(r >= 400) throw new IOException(r + " " + hc.getResponseMessage());
+			int redirects = 0;
+			while (r == 301 || r == 302) {
+				String redir = hc.getHeaderField("Location");
+				if (redir.startsWith("/")) {
+					String tmp = url.substring(url.indexOf("//") + 2);
+					String host = url.substring(0, url.indexOf("//")) + "//" + tmp.substring(0, tmp.indexOf("/"));
+					redir = host + redir;
+				}
+				hc.close();
+				hc = (HttpConnection) open(redir);
+				hc.setRequestMethod("GET");
+				if(cookie != null) {
+					hc.setRequestProperty("Cookie", cookie);
+				}
+				if(redirects++ > 3) {
+					throw new IOException("Too many redirects!");
+				}
+			}
+			if (hc.getHeaderField("Set-Cookie") != null && !url.endsWith(".jpg")) {
+				for (int i = 0;; i++) {
+					String k = hc.getHeaderFieldKey(i);
+					if (k == null)
+						break;
+					String v = hc.getHeaderField(i);
+					if(k.equalsIgnoreCase("set-cookie")) {
+						if(v.indexOf("code_auth=") != -1) {
+							String[] f = Util.split(v, ';');
+							for(int j = 0; j < f.length; j++) {
+								if(f[i].indexOf("code_auth=") != -1) {
+									String s = f[i];
+									if(s.startsWith(" ")) s = s.substring(1);
+									cookie = s;
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+			is = hc.openInputStream();
 			o = new ByteArrayOutputStream();
-			byte[] buf = new byte[256];
+			byte[] buf = new byte[512];
 			int len;
 			while ((len = is.read(buf)) != -1) {
                o.write(buf, 0, len);
 			}
 			return o.toByteArray();
 		} catch (NullPointerException e) {
+			e.printStackTrace();
+			
 			throw new IOException(e.toString());
 		} finally {
 			if (is != null)
 				is.close();
-			if (con != null)
-				con.close();
+			if (hc != null)
+				hc.close();
 			if (o != null)
 				o.close();
 		}
@@ -221,8 +279,8 @@ public class Util {
 			return con;
 		} catch (IOException e) {
 			e.printStackTrace();
-			throw new IOException(Util.cut(Util.cut(e.toString(), "Exception"), "java.io.") + " "
-					+ url);
+			throw e;
+			//throw new IOException(Util.cut(Util.cut(e.toString(), "Exception"), "java.io.") + " " + url);
 		}
 	}
 
