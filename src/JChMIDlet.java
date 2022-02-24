@@ -308,19 +308,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						} else throw e;
 					}
 					if(!(result instanceof JSONObject)) {
-						/*
-						if(result instanceof String) {
-							if(result.toString().startsWith("<!DOCTYPE html>")) {
-								try {
-									if(platformRequest(prepareUrl(currentBoard + "/res/" + id + ".json", "http://nnproject.cc/glype/browse.php?u="))) {
-										//notifyDestroyed();
-									}
-								} catch (Exception e) {
-									e.printStackTrace();
-								}
-							}
-						}*/
-						throw new RuntimeException("Result not object: " + result);
+						if(result instanceof String && result.toString().startsWith("<!DOCTYPE html>")) {
+							getResult(currentBoard + "/arch/res/" + id + ".json");
+						} else {
+							throw new RuntimeException("Result not object: " + result);
+						}
 					}
 					j = (JSONObject) result;
 					if(j == null || !(result instanceof JSONObject))
