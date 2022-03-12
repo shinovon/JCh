@@ -118,7 +118,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static String glypeProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
 	private static String apiProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
 	private static String imgProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
-	private int maxPostsCount = 15;
+	private int maxPostsCount = 10;
 	
 	private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
 	private static final RE hrefRe = new RE("(href=\"(.*?)\")");
@@ -492,7 +492,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		}
 		for(int i = 0; i < l /*&& i < 30*/; i++) {
 			if(i + currentIndex + offset >= l) return;
-			if(i > maxPostsCount) {
+			if(i >= maxPostsCount) {
 				if(offset == 0) {
 					currentIndex = 0;
 					cachedPosts = posts;
