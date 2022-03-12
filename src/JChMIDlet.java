@@ -95,7 +95,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					}
 					int l;
 					while((l = thumbsToLoad.size()) > 0) {
-						int i = l - 1;
+						int i = 0;
 						Object[] o = (Object[]) thumbsToLoad.elementAt(i);
 						thumbsToLoad.removeElementAt(i);
 						String path = (String) o[0];
@@ -298,7 +298,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			String path = (String) files.get(item);
 			if(path != null) {
 				try {
-					if(platformRequest(prepareUrl(path, "http://nnproject.cc/glype/browse.php?u="))) {
+					if(platformRequest(prepareUrl(path, glypeProxyUrl))) {
 						//notifyDestroyed();
 					}
 				} catch (Exception e) {
@@ -313,7 +313,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					if(path.indexOf("/res/") != -1 && path.indexOf(".html") != -1) {
 						String bd = path;
 						bd = bd.substring(0, bd.indexOf("/res/"));
-						bd = bd.substring(bd.lastIndexOf('/'));
+						bd = bd.substring(bd.lastIndexOf('/')+1);
 						String tid = path;
 						tid = tid.substring(tid.indexOf("/res/") + "/res/".length(), tid.indexOf(".html"));
 						System.out.println(tid);
@@ -419,7 +419,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					try {
 						if(post != null) {
 							try {
-								getResult("makaba/mobile.fcgi?task=get_thread&board="+bd+"&thread="+id+"&post="+post);
+								getResult("makaba/mobile.fcgi?task=get_thread&board="+bd+"&thread="+id+"&num="+post);
 							} catch (IOException e) {
 								if(e.getMessage().startsWith("404")) {
 									getResult(bd + "/arch/res/" + id + ".json");
@@ -456,8 +456,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 								return;
 							JSONObject t = th.getObject(0);
 							posts = t.getArray("posts");
+							postsCount = j.getInt("posts_count");
 						}
-						postsCount = j.getInt("posts_count");
 						if(threadFrm != null) removeLoadingLabel(threadFrm);
 						else return;
 						parsePosts(posts, 0);
