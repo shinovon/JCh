@@ -36,20 +36,23 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 
 	private static Command exitCmd = new Command("Выход", Command.EXIT, 0);
 	private static Command backCmd = new Command("Назад", Command.BACK, 0);
-	private static Command boardFieldCmd = new Command("Раздел", Command.OK, 0);
+	private static Command boardFieldCmd = new Command("Открыть", Command.OK, 0);
 	private static Command boardCmd = new Command("Треды", Command.OK, 0);
 	private static Command boardSearchItemCmd = new Command("Поиск", Command.OK, 0);
 	private static Command openThreadCmd = new Command("Открыть тред", Command.ITEM, 0);
 	private static Command fileImgItemOpenCmd = new Command("Открыть файл", Command.ITEM, 0);
 	private static Command postLinkItemCmd = new Command("Открыть ссылку", Command.ITEM, 0);
 	private static Command postSpoilerItemCmd = new Command("Показать спойлер", Command.ITEM, 0);
+	private static Command nextPostsItemCmd = new Command("След. посты", Command.ITEM, 0);
+	private static Command prevPostsItemCmd = new Command("Пред. посты", Command.ITEM, 0);
+	private static Command boardsItemCmd = new Command("Доски", Command.ITEM, 0);
 	private static Command aboutCmd = new Command("О программе", Command.SCREEN, 0);
 	private static Command settingsCmd = new Command("Настройки", Command.SCREEN, 0);
 	private static Command agreeCmd = new Command("Да", Command.OK, 0);
 	private static Command disagreeCmd = new Command("Нет", Command.EXIT, 0);
 	private static Display display;
 
-	private static Font mediumBoldFont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+	private static Font largeBoldFont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_LARGE);
 	private static Font smallPlainFont = Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL);
 	private static Font smallBoldFont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL);
 	private static Font smallItalicFont = Font.getFont(0, Font.STYLE_ITALIC, Font.SIZE_SMALL);
@@ -61,6 +64,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private Form boardFrm;
 	private Form threadFrm;
 	private Form aboutFrm;
+	private Form boardsFrm;
 	private TextField boardField;
 	private TextField boardSearchField;
 	
@@ -104,8 +108,19 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			}
 		}
 	};
+
+
+	private JSONArray cachedPosts;
+	private int postsCount;
+	private int currentIndex;
+
+	// Settings
+	private static String glypeProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
+	private static String apiProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
+	private static String imgProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
+	private int maxPostsCount = 15;
 	
-	private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|<h>(.*?)</h>)");
+	private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
 	private static final RE hrefRe = new RE("(href=\"(.*?)\")");
 	private static final RE classRe = new RE("(class=\"(.*?)\")");
 	
@@ -119,7 +134,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		mainFrm.addCommand(exitCmd);
 		mainFrm.addCommand(aboutCmd);
 		mainFrm.append(boardField = new TextField("", "", 8, TextField.ANY));
-		boardField.setLabel("Раздел");
+		boardField.setLabel("Доска");
 		boardField.addCommand(boardFieldCmd);
 		boardField.setItemCommandListener(this);
 		StringItem btn = new StringItem("", "", StringItem.BUTTON);
@@ -127,6 +142,12 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		btn.setDefaultCommand(boardFieldCmd);
 		btn.setItemCommandListener(this);
 		mainFrm.append(btn);
+		StringItem btn2 = new StringItem("", "", StringItem.BUTTON);
+		btn2.setText("Доски");
+		btn2.setLayout(Item.LAYOUT_EXPAND);
+		btn2.setDefaultCommand(boardsItemCmd);
+		btn2.setItemCommandListener(this);
+		mainFrm.append(btn2);
 	}
 
 	protected void destroyApp(boolean b) {
@@ -146,8 +167,6 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		started = true;
 		display = Display.getDisplay(this);
 		display.setCurrent(mainFrm);
-		if(false)
-		loadBoards();
 		thumbLoaderThread.setPriority(2);
 		thumbLoaderThread.start();
 	}
@@ -156,6 +175,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		new Thread() {
 			public void run() {
 				try {
+					removeLoadingLabel(boardsFrm);
+					/*
 					getResult("makaba/mobile.fcgi?task=get_boards&");
 					if(!(result instanceof JSONObject))
 						return;
@@ -179,8 +200,31 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						}
 						Thread.yield();
 					}
+					*/
+					getResult("boards.json");
+					System.out.println(result);
+					if(!(result instanceof JSONObject))
+						return;
+					JSONArray boards = ((JSONObject)result).getArray("boards");
+					for(Enumeration en = boards.elements(); en.hasMoreElements();) {
+						JSONObject board = (JSONObject) en.nextElement();
+						String id = board.getNullableString("id");
+						String name = board.getNullableString("name");
+						StringItem btn = new StringItem("", "", StringItem.BUTTON);
+						btn.setText("/" + id + "/ " + name);
+						btn.setDefaultCommand(boardCmd);
+						btn.setItemCommandListener(JChMIDlet.this);
+						btn.setLayout(Item.LAYOUT_EXPAND);
+						boardsFrm.append(btn);
+						Thread.yield();
+					}
 				} catch (Exception e) {
 					e.printStackTrace();
+					removeLoadingLabel(boardsFrm);
+					addLoadingLabel(boardsFrm, "Ошибка!");
+					StringItem s = new StringItem("", e.toString());
+					s.setLayout(Item.LAYOUT_LEFT);
+					boardsFrm.append(s);
 				}
 			}
 		}.start();
@@ -190,6 +234,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		System.out.println(string);
 		result = null;
 		result = Util.getString(prepareUrl(string));
+		if(result.toString().length() == 0) throw new IOException("Empty response");
 		char c = ((String) result).charAt(0);
 		if(c == '{')
 			result = JSON.getObject((String) result);
@@ -210,6 +255,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				display.setCurrent(mainFrm);
 				clearThreadData();
 				aboutFrm = null;
+			} else if(d == boardsFrm) {
+				display.setCurrent(mainFrm);
 			}
 		} else if(c == aboutCmd) {
 			aboutFrm = new Form("Jch - О программе");
@@ -219,6 +266,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			aboutFrm.append(s);
 			parseHtmlText(aboutFrm, Util.replace(aboutText, "<ver>", version));
 			display(aboutFrm);
+			if(Util.platform.indexOf("S60") > -1 && Util.platform.indexOf("=3.2") == -1)
 			try {
 				display.setCurrentItem(s);
 			} catch (Throwable e) {
@@ -232,7 +280,6 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		spoilers.clear();
 		comments.clear();
 		thumbsToLoad.removeAllElements();
-		threadFrm = null;
 	}
 
 	public void commandAction(Command c, Item item) {
@@ -264,27 +311,36 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			if(path != null) {
 				if(path.startsWith("/") || path.startsWith("https://2ch.hk/")) {
 					if(path.indexOf("/res/") != -1 && path.indexOf(".html") != -1) {
+						String bd = path;
+						bd = bd.substring(0, bd.indexOf("/res/"));
+						bd = bd.substring(bd.lastIndexOf('/'));
 						String tid = path;
 						tid = tid.substring(tid.indexOf("/res/") + "/res/".length(), tid.indexOf(".html"));
 						System.out.println(tid);
-						if(path.indexOf("html#") != -1 && currentThread != null && tid.equals(currentThread)) {
+						if(path.indexOf("html#") != -1) {
 							String cid = path;
 							cid = cid.substring(cid.indexOf("html#") + "html#".length());
 							System.out.println(cid);
-							Item i = (Item) comments.get(cid);
-							if(i != null) {
-								try {
-									display.setCurrentItem(i);
-								} catch(Throwable e) {
+							if(tid.equals(currentThread)) {
+								Item i = (Item) comments.get(cid);
+								if(i != null) {
+									try {
+										display.setCurrentItem(i);
+									} catch(Throwable e) {
+									}
+								} else {
+									openThread(tid, bd, cid);
 								}
+							} else {
+								openThread(tid, bd, cid);
 							}
 						} else {
 							if(currentThread != null && currentThread.equalsIgnoreCase(tid)) return;
-							openThread(tid);
+							openThread(tid, bd);
 						}
 					} else {
 						try {
-							if(platformRequest(prepareUrl(path, "http://nnproject.cc/glype/browse.php?u="))) {
+							if(platformRequest(prepareUrl(path, glypeProxyUrl))) {
 								//notifyDestroyed();
 							}
 						} catch (Exception e) {
@@ -312,10 +368,34 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				s.setItemCommandListener(null);
 				//s.removeCommand(postSpoilerItemCmd);
 			}
+		} else if(c == nextPostsItemCmd) {
+			clearThreadData();
+			threadFrm.deleteAll();
+			currentIndex += maxPostsCount;
+			parsePosts(cachedPosts, maxPostsCount);
+		} else if(c == boardsItemCmd) {
+			if(boardsFrm != null) {
+				display(boardsFrm);
+				return;
+			}
+			boardsFrm = new Form("Jch - Доски");
+			boardsFrm.addCommand(backCmd);
+			boardsFrm.setCommandListener(this);
+			display(boardsFrm);
+			addLoadingLabel(boardsFrm);
+			loadBoards();
 		}
 	}
+	
+	private void openThread(String id) {
+		openThread(id, currentBoard, null);
+	}
+	
+	private void openThread(String id, String board) {
+		openThread(id, board, null);
+	}
 
-	private void openThread(final String id) {
+	private void openThread(final String id, final String bd, final String post) {
 		if(lastThread != null && lastThread.isAlive()) {
 			lastThread.interrupt();
 			lastThread = null;
@@ -334,72 +414,53 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					display(threadFrm);
 					addLoadingLabel(threadFrm);
 					JSONObject j = null;
+					
+					JSONArray posts;
 					try {
-						try {
-							getResult(currentBoard + "/res/" + id + ".json");
-						} catch (IOException e) {
-							if(e.getMessage().startsWith("404")) {
-								getResult(currentBoard + "/arch/res/" + id + ".json");
-							} else throw e;
-						}
-						if(!(result instanceof JSONObject)) {
-							if(result instanceof String && result.toString().startsWith("<!DOCTYPE html>")) {
-								getResult(currentBoard + "/arch/res/" + id + ".json");
-								if(!(result instanceof JSONObject)) {
+						if(post != null) {
+							try {
+								getResult("makaba/mobile.fcgi?task=get_thread&board="+bd+"&thread="+id+"&post="+post);
+							} catch (IOException e) {
+								if(e.getMessage().startsWith("404")) {
+									getResult(bd + "/arch/res/" + id + ".json");
+								} else throw e;
+							}
+							if(result == null || !(result instanceof JSONArray))
+								return;
+							posts = (JSONArray) result;
+						} else {
+							try {
+								getResult(bd + "/res/" + id + ".json");
+							} catch (IOException e) {
+								if(e.getMessage().startsWith("404")) {
+									getResult(bd + "/arch/res/" + id + ".json");
+								} else throw e;
+							}
+							if(!(result instanceof JSONObject)) {
+								if(result instanceof String && result.toString().startsWith("<!DOCTYPE html>")) {
+									getResult(currentBoard + "/arch/res/" + id + ".json");
+									if(!(result instanceof JSONObject)) {
+										throw new Exception("404 Тред не найден");
+									}
+								} else {
 									throw new RuntimeException("Result not object: " + result);
 								}
-							} else {
-								throw new RuntimeException("Result not object: " + result);
 							}
+							if(result == null || !(result instanceof JSONObject))
+								return;
+							j = (JSONObject) result;
+							//System.out.println(j);
+							threadFrm.setTitle("/" + bd + "/ - " + Util.htmlText(j.getString("title", "")));
+							JSONArray th = j.getNullableArray("threads");
+							if(th == null)
+								return;
+							JSONObject t = th.getObject(0);
+							posts = t.getArray("posts");
 						}
-						if(result == null || !(result instanceof JSONObject))
-							return;
-						j = (JSONObject) result;
-						//System.out.println(j);
-						threadFrm.setTitle("/" + j.getString("Board", "?") + "/ - " + Util.htmlText(j.getString("title", "")));
-						JSONArray th = j.getNullableArray("threads");
-						if(th == null)
-							return;
-						JSONArray posts = th.getObject(0).getArray("posts");
-						int l = posts.size();
+						postsCount = j.getInt("posts_count");
 						if(threadFrm != null) removeLoadingLabel(threadFrm);
 						else return;
-						for(int i = 0; i < l /*&& i < 30*/; i++) {
-							JSONObject post = posts.getObject(i);
-							JSONArray files = post.getNullableArray("files");
-							//System.out.println(post);
-							String num = post.getString("num", "");
-							StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + " " + post.getString("date", "") + " #" + num);
-							title.setFont(smallBoldFont);
-							title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-							comments.put(num, title);
-							threadFrm.append(title);
-							/*
-							StringItem text = new StringItem(null, Util.text(post.getString("comment", "")));
-							text.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
-							text.setLayout(Item.LAYOUT_NEWLINE_AFTER);
-							threadFrm.append(text);
-							*/
-							parseHtmlText(threadFrm, post.getString("comment", ""));
-							
-							if(files != null) {
-								int fl = files.size();
-								for(int fi = 0; fi < fl && fi < 5; fi++) {
-									JSONObject file = files.getObject(fi);
-									String name = file.getString("displayname", file.getString("name", ""));
-									ImageItem fitem = new ImageItem(name, null, 0, name);
-									fitem.setLayout(Item.LAYOUT_NEWLINE_BEFORE);
-									fitem.addCommand(fileImgItemOpenCmd);
-									fitem.setDefaultCommand(fileImgItemOpenCmd);
-									fitem.setItemCommandListener(JChMIDlet.this);
-									addFile(fitem, file.getString("path", null), file.getString("thumbnail", null));
-									threadFrm.append(fitem);
-								}
-							}
-							Spacer s = new Spacer(2, 20);
-							s.setLayout(Item.LAYOUT_2);
-							threadFrm.append(s);
-						}
+						parsePosts(posts, 0);
 					} catch (InterruptedException e) {
 					} catch (Exception e) {
 						e.printStackTrace();
@@ -417,6 +478,68 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		};
 		t.start();
 		
+	}
+
+	private void parsePosts(JSONArray posts, int offset) {
+		int l = posts.size();
+		if(offset != 0) {
+			StringItem btn = new StringItem(null, "Предыдущие посты");
+			btn.setLayout(Item.LAYOUT_CENTER);
+			btn.addCommand(prevPostsItemCmd);
+			btn.setDefaultCommand(prevPostsItemCmd);
+			btn.setItemCommandListener(JChMIDlet.this);
+			threadFrm.append(btn);
+		}
+		for(int i = 0; i < l /*&& i < 30*/; i++) {
+			if(i + currentIndex + offset >= l) return;
+			if(i > maxPostsCount) {
+				if(offset == 0) {
+					currentIndex = 0;
+					cachedPosts = posts;
+				}
+				StringItem btn = new StringItem(null, "Следующие посты");
+				btn.setLayout(Item.LAYOUT_CENTER);
+				btn.addCommand(nextPostsItemCmd);
+				btn.setDefaultCommand(nextPostsItemCmd);
+				btn.setItemCommandListener(JChMIDlet.this);
+				threadFrm.append(btn);
+				break;
+			}
+			JSONObject post = posts.getObject(i + currentIndex);
+			JSONArray files = post.getNullableArray("files");
+			//System.out.println(post);
+			String num = post.getString("num", "");
+			StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + " " + post.getString("date", "") + " #" + num);
+			title.setFont(smallBoldFont);
+			title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
+			comments.put(num, title);
+			threadFrm.append(title);
+			/*
+			StringItem text = new StringItem(null, Util.text(post.getString("comment", "")));
+			text.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
+			text.setLayout(Item.LAYOUT_NEWLINE_AFTER);
+			threadFrm.append(text);
+			*/
+			parseHtmlText(threadFrm, post.getString("comment", ""));
+			
+			if(files != null) {
+				int fl = files.size();
+				for(int fi = 0; fi < fl && fi < 5; fi++) {
+					JSONObject file = files.getObject(fi);
+					String name = file.getString("displayname", file.getString("name", ""));
+					ImageItem fitem = new ImageItem(name, null, 0, name);
+					fitem.setLayout(Item.LAYOUT_NEWLINE_BEFORE);
+					fitem.addCommand(fileImgItemOpenCmd);
+					fitem.setDefaultCommand(fileImgItemOpenCmd);
+					fitem.setItemCommandListener(JChMIDlet.this);
+					addFile(fitem, file.getString("path", null), file.getString("thumbnail", null));
+					threadFrm.append(fitem);
+				}
+			}
+			Spacer s = new Spacer(2, 20);
+			s.setLayout(Item.LAYOUT_2);
+			threadFrm.append(s);
+		}
 	}
 
 	protected void parseHtmlText(Form f, String s) {
@@ -524,11 +647,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				}
 				f.append(textitem);
 			} else if(w.startsWith("<h>")) {
-				String c = htmlRe.getParen(10);
+				String c = htmlRe.getParen(11);
 				System.out.println("h " + c);
 				c = Util.htmlText(c);
 				StringItem bolditem = new StringItem(null, c);
-				bolditem.setFont(mediumBoldFont);
+				bolditem.setFont(largeBoldFont);
 				bolditem.setLayout(Item.LAYOUT_2);
 				f.append(bolditem);
 			}
@@ -632,6 +755,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 
 	private void addLoadingLabel(Form f, String s) {
+		if(f == null) return;
 		tempLoadingLabel = new StringItem(null, s);
 		tempLoadingLabel.setFont(smallPlainFont);
 		tempLoadingLabel.setLayout(Item.LAYOUT_CENTER);
@@ -647,13 +771,13 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 
 	public static Image getImg(String url) throws IOException {
-		url = prepareUrl(url);
+		url = prepareUrl(url, imgProxyUrl);
 		byte[] b = Util.get(url);
 		return Image.createImage(b, 0, b.length);
 	}
 
 	public static String prepareUrl(String url) {
-		return prepareUrl(url, "http://nnproject.cc/hproxy.php?");
+		return prepareUrl(url, apiProxyUrl);
 	}
 
 	public static String prepareUrl(String url, String proxy) {

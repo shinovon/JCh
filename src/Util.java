@@ -9,7 +9,7 @@ import javax.microedition.io.HttpConnection;
 import javax.microedition.rms.RecordStore;
 
 public class Util {
-	private static String platform;
+	public static String platform = System.getProperty("microedition.platform");
 	private static String cookie;
 	
 	static {
@@ -242,7 +242,7 @@ public class Util {
 			}
 			is = hc.openInputStream();
 			o = new ByteArrayOutputStream();
-			byte[] buf = new byte[512];
+			byte[] buf = new byte[256];
 			int len;
 			while ((len = is.read(buf)) != -1) {
                o.write(buf, 0, len);
@@ -250,7 +250,6 @@ public class Util {
 			return o.toByteArray();
 		} catch (NullPointerException e) {
 			e.printStackTrace();
-			
 			throw new IOException(e.toString());
 		} finally {
 			if (is != null)
@@ -275,20 +274,13 @@ public class Util {
 		try {
 			ContentConnection con = (ContentConnection) Connector.open(url, Connector.READ);
 			if (con instanceof HttpConnection)
-				((HttpConnection) con).setRequestProperty("User-Agent", "JCh/" + JChMIDlet.version() + " (" + platform() + ")");
+				((HttpConnection) con).setRequestProperty("User-Agent", "JCh/" + JChMIDlet.version() + " (" + platform + ")");
 			return con;
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw e;
 			//throw new IOException(Util.cut(Util.cut(e.toString(), "Exception"), "java.io.") + " " + url);
 		}
-	}
-
-
-	public static String platform() {
-		if(platform != null)
-			return platform;
-		return platform = System.getProperty("microedition.platform");
 	}
 
 	public static String htmlText(String str) {
