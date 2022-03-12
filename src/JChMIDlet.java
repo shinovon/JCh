@@ -15,6 +15,7 @@ import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
 import javax.microedition.lcdui.Spacer;
 import javax.microedition.lcdui.StringItem;
+import javax.microedition.lcdui.TextBox;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.midlet.MIDlet;
 
@@ -46,10 +47,15 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static Command nextPostsItemCmd = new Command("След. посты", Command.ITEM, 0);
 	private static Command prevPostsItemCmd = new Command("Пред. посты", Command.ITEM, 0);
 	private static Command boardsItemCmd = new Command("Доски", Command.ITEM, 0);
+	private static Command postTextItemCmd = new Command("Ред. текст", Command.ITEM, 0);
+	private static Command postThreadCmd = new Command("Запостить тред", Command.SCREEN, 0);
+	private static Command postCommentCmd = new Command("Ответить в тред", Command.SCREEN, 0);
 	private static Command aboutCmd = new Command("О программе", Command.SCREEN, 0);
 	private static Command settingsCmd = new Command("Настройки", Command.SCREEN, 0);
 	private static Command agreeCmd = new Command("Да", Command.OK, 0);
 	private static Command disagreeCmd = new Command("Нет", Command.EXIT, 0);
+	private static Command postCmd = new Command("Запостить", Command.OK, 0);
+	private static Command textOkCmd = new Command("Ок", Command.OK, 0);
 	private static Display display;
 
 	private static Font largeBoldFont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_LARGE);
@@ -65,6 +71,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private Form threadFrm;
 	private Form aboutFrm;
 	private Form boardsFrm;
+	private Form postingFrm;
 	private TextField boardField;
 	private TextField boardSearchField;
 	
@@ -109,7 +116,6 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		}
 	};
 
-
 	private JSONArray cachedPosts;
 	private int postsCount;
 	private int currentIndex;
@@ -119,6 +125,18 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static String apiProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
 	private static String imgProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
 	private int maxPostsCount = 10;
+
+	private TextField postSubjectField;
+
+	private TextField postTextField;
+
+	private StringItem postTextBtn;
+
+	private String postThread;
+
+	private String postBoard;
+
+	private TextBox tempTextBox;
 	
 	private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
 	private static final RE hrefRe = new RE("(href=\"(.*?)\")");
@@ -271,7 +289,43 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				display.setCurrentItem(s);
 			} catch (Throwable e) {
 			}
+		} else if(c == postThreadCmd) {
+			postThread = "0";
+			postBoard = currentBoard;
+			createPostingForm();
+		} else if(c == postCommentCmd) {
+			postThread = currentThread;
+			postBoard = currentBoard;
+			createPostingForm();
+		} else if(c == textOkCmd) {
+			postTextField.setString(tempTextBox.getString());
+			display(postingFrm);
 		}
+	}
+	
+	private void createPostingForm() {
+		postingFrm = new Form("Jch - Форма постинга");
+		postingFrm.addCommand(backCmd);
+		postingFrm.addCommand(postCmd);
+		postingFrm.setCommandListener(this);
+		postSubjectField = new TextField("", "", 200, TextField.ANY);
+		postingFrm.append(postSubjectField);
+		postTextField = new TextField("Текст", "", 1000, TextField.ANY);
+		postTextField.setLayout(Item.LAYOUT_VEXPAND | Item.LAYOUT_EXPAND );
+		postingFrm.append(postTextField);
+		postTextBtn = new StringItem("", "", StringItem.BUTTON);
+		postTextBtn.setText("...");
+		postTextBtn.setLayout(Item.LAYOUT_RIGHT);
+		postTextBtn.addCommand(postTextItemCmd);
+		postTextBtn.setDefaultCommand(postTextItemCmd);
+		postTextBtn.setItemCommandListener(this);
+		postingFrm.append(postTextBtn);
+		StringItem s = new StringItem("", "Файлы будут добавлены позже!\n"
+				+ "Капча спрошена будет после нажатия на Запостить\n"
+				+ "ответьте на нее не менее чем за минуту");
+		s.setLayout(Item.LAYOUT_LEFT);
+		postingFrm.append(s);
+		display(postingFrm);
 	}
 
 	private void clearThreadData() {
@@ -384,6 +438,12 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			display(boardsFrm);
 			addLoadingLabel(boardsFrm);
 			loadBoards();
+		} else if(c == postTextItemCmd) {
+			tempTextBox = new TextBox("", "", 1000, TextField.ANY);
+			tempTextBox.setString(postTextField.getString());
+			tempTextBox.addCommand(textOkCmd);
+			tempTextBox.setCommandListener(this);
+			display(tempTextBox);
 		}
 	}
 	
@@ -691,18 +751,19 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		currentBoard = board;
 		System.out.println("Board: " + board);
 		createBoard(board);
-		display.setCurrent(boardFrm);
 	}
 	
 	private void createBoard(final String board) {
 		boardFrm = new Form("Jch - /" + board + "/");
 		boardFrm.addCommand(backCmd);
+		boardFrm.addCommand(postThreadCmd);
 		boardFrm.setCommandListener(this);
 		boardFrm.append(boardSearchField = new TextField("","", 1000, TextField.ANY));
 		boardSearchField.setLabel("Поиск");
 		boardSearchField.addCommand(boardSearchItemCmd);
 		boardSearchField.setItemCommandListener(this);
 		addLoadingLabel(boardFrm);
+		display.setCurrent(boardFrm);
 		/*StringItem btn = new StringItem("Поиск", "", StringItem.BUTTON);
 		btn.setDefaultCommand(boardSearchCmd);
 		btn.setItemCommandListener(this);

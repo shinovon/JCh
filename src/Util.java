@@ -1,4 +1,5 @@
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Vector;
@@ -219,6 +220,65 @@ public class Util {
 					throw new IOException("Too many redirects!");
 				}
 			}
+			if (hc.getHeaderField("Set-Cookie") != null && !url.endsWith(".jpg")) {
+				for (int i = 0;; i++) {
+					String k = hc.getHeaderFieldKey(i);
+					if (k == null)
+						break;
+					String v = hc.getHeaderField(i);
+					if(k.equalsIgnoreCase("set-cookie")) {
+						if(v.indexOf("code_auth=") != -1) {
+							String[] f = Util.split(v, ';');
+							for(int j = 0; j < f.length; j++) {
+								if(f[i].indexOf("code_auth=") != -1) {
+									String s = f[i];
+									if(s.startsWith(" ")) s = s.substring(1);
+									cookie = s;
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+			is = hc.openInputStream();
+			o = new ByteArrayOutputStream();
+			byte[] buf = new byte[256];
+			int len;
+			while ((len = is.read(buf)) != -1) {
+               o.write(buf, 0, len);
+			}
+			return o.toByteArray();
+		} catch (NullPointerException e) {
+			e.printStackTrace();
+			throw new IOException(e.toString());
+		} finally {
+			if (is != null)
+				is.close();
+			if (hc != null)
+				hc.close();
+			if (o != null)
+				o.close();
+		}
+	}
+	
+	public static byte[] post(String url, String content) throws IOException {
+		System.out.println("GET " + url);
+		HttpConnection hc = (HttpConnection) open(url);
+
+		InputStream is = null;
+		DataOutputStream os = null;
+		ByteArrayOutputStream o = null;
+		try {
+			hc.setRequestMethod("POST");
+			if(cookie != null) {
+				hc.setRequestProperty("Cookie", cookie);
+			}
+			//hc.setRequestProperty("Accept-Encoding", "identity");
+			os = hc.openDataOutputStream();
+			os.write(content.getBytes("UTF-8"));
+			int r = hc.getResponseCode();
+			if(r >= 300) throw new IOException(r + " " + hc.getResponseMessage());
 			if (hc.getHeaderField("Set-Cookie") != null && !url.endsWith(".jpg")) {
 				for (int i = 0;; i++) {
 					String k = hc.getHeaderFieldKey(i);
