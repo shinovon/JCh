@@ -1,8 +1,11 @@
 import java.io.IOException;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
 
+import javax.microedition.lcdui.Alert;
 import javax.microedition.lcdui.Command;
 import javax.microedition.lcdui.CommandListener;
 import javax.microedition.lcdui.Display;
@@ -19,17 +22,24 @@ import javax.microedition.lcdui.TextBox;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.midlet.MIDlet;
 
+import com.nokia.mid.ui.DisplayableInvoker;
+
 import cc.nnproject.json.JSON;
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
-import me.regexp.RE;
+import dom.Document;
+import dom.Element;
+import dom.NamedNodeMap;
+import dom.Node;
+import dom.NodeList;
+import tidy.Tidy;
 
 public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandListener {
 	
 	private static String version;
 	
 	private static final String aboutText =
-			  "<h>JCh</h><br>"
+			  "<h1>JCh</h1><br>"
 			+ "версия <ver><br><br>"
 			+ "Клиент <a href=\"https://2ch.hk\">2ch.hk</a> для Symbian/J2ME устройств<br><br>"
 			+ "Разработал<br>"
@@ -125,6 +135,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static String apiProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
 	private static String imgProxyUrl = "http://f.spoolls.com/a/browse.php?u=";
 	private int maxPostsCount = 10;
+	private boolean time2ch;
 
 	private TextField postSubjectField;
 
@@ -137,16 +148,20 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private String postBoard;
 
 	private TextBox tempTextBox;
+
+	private Tidy tidy;
+
 	
-	private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
-	private static final RE hrefRe = new RE("(href=\"(.*?)\")");
-	private static final RE classRe = new RE("(class=\"(.*?)\")");
+	//private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
+	//private static final RE hrefRe = new RE("(href=\"(.*?)\")");
+	//private static final RE classRe = new RE("(class=\"(.*?)\")");
 	
 	static String version() {
 		return version;
 	}
 
 	public JChMIDlet() {
+		tidy = new Tidy();
 		mainFrm = new Form("Jch - Главная");
 		mainFrm.setCommandListener(this);
 		mainFrm.addCommand(exitCmd);
@@ -187,6 +202,15 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		display.setCurrent(mainFrm);
 		thumbLoaderThread.setPriority(2);
 		thumbLoaderThread.start();
+		String s = Util.platform.toLowerCase();
+		if(s.indexOf("nux") != -1 || s.indexOf("win") != -1) {
+			Alert a = new Alert("");
+			a.setTitle("Предупреждение");
+			a.setString("В эмуляторе содержимое постов может отображаться некорректно!");
+			a.addCommand(Alert.DISMISS_COMMAND);
+			display.setCurrent(a, mainFrm);
+		}
+		
 	}
 
 	private void loadBoards() {
@@ -268,7 +292,15 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				display.setCurrent(mainFrm);
 			} else if(d == threadFrm) {
 				display.setCurrent(boardFrm);
+				if(lastThread != null && lastThread.isAlive()) {
+					lastThread.interrupt();
+					lastThread = null;
+				}
+				threadFrm.deleteAll();
 				clearThreadData();
+				threadFrm = null;
+				currentThread = null;
+				System.gc();
 			} else if(d == aboutFrm) {
 				display.setCurrent(mainFrm);
 				clearThreadData();
@@ -551,6 +583,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			threadFrm.append(btn);
 		}
 		for(int i = 0; i < l /*&& i < 30*/; i++) {
+			try {
+				Thread.sleep(1);
+			} catch (InterruptedException e) {
+				return;
+			}
 			if(i + currentIndex + offset >= l) return;
 			if(i >= maxPostsCount) {
 				if(offset == 0) {
@@ -569,7 +606,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			JSONArray files = post.getNullableArray("files");
 			//System.out.println(post);
 			String num = post.getString("num", "");
-			StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + " " + post.getString("date", "") + " #" + num);
+			System.out.println(post.toString());
+			StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + "\n" + (time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))) + " #" + num);
 			title.setFont(smallBoldFont);
 			title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
 			comments.put(num, title);
@@ -602,7 +640,29 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		}
 	}
 
+	private String parsePostDate(long time) {
+		Calendar c = Calendar.getInstance();
+		c.setTime(new Date(time*1000));
+		return n(c.get(Calendar.DAY_OF_MONTH)) + "." + n(c.get(Calendar.MONTH)+1) + "." + c.get(Calendar.YEAR) + " " + n(c.get(Calendar.HOUR_OF_DAY)) + ":" + n(c.get(Calendar.MINUTE));
+	}
+	
+	private String n(int n) {
+		if(n < 10) {
+			return "0" + n;
+		} else return "" + n;
+	}
+	
 	protected void parseHtmlText(Form f, String s) {
+		Document doc = tidy.parseDOM("<html>"+s+"</html>");
+		System.out.println(s);
+		System.out.println("doc: " + doc);
+		Element e = doc.getDocumentElement();
+		System.out.println("e: " + e);
+		NodeList nl = e.getChildNodes();
+		System.out.println("nl: " + nl);
+		recursionParse(f, nl);
+		/*
+		return;
 		int ti;
 		int tl;
 		for (ti = 0, tl = s.length(); ti < tl && htmlRe.match(s, ti); ti = htmlRe.getParenEnd(0)) {
@@ -706,7 +766,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					// цитата
 				}
 				f.append(textitem);
-			} else if(w.startsWith("<h>")) {
+			} else if(w.startsWith("<h1>")) {
 				String c = htmlRe.getParen(11);
 				System.out.println("h " + c);
 				c = Util.htmlText(c);
@@ -725,6 +785,119 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				f.append(textitem);
 			}
         }
+        */
+	}
+
+	private Font getFont(int i, int j, int k) {
+		if(i == 0) {
+			if(k == Font.SIZE_SMALL) {
+				if(j == Font.STYLE_BOLD) {
+					return smallBoldFont;
+				}
+				if(j == Font.STYLE_ITALIC) {
+					return smallItalicFont;
+				}
+				if(j == Font.STYLE_PLAIN) {
+					return smallPlainFont;
+				}
+				if(j == Font.STYLE_UNDERLINED) {
+					return smallUnderlinedFont;
+				}
+			}
+			if(k == Font.SIZE_LARGE) {
+				if(j == Font.STYLE_BOLD) {
+					return largeBoldFont;
+				}
+			}
+		}
+		return Font.getFont(i, j, k);
+	}
+	
+	private void recursionParse(Form f, NodeList nl) {
+		int l = nl.getLength();
+		for(int i = 0; i < l; i++) {
+			Node n = nl.item(i);
+			
+			String k = n.getNodeName();
+			if(k.equals("head")) {
+				continue;
+			}
+			String v = n.getNodeValue();
+			System.out.println(k + " " + v);
+			if(k.equals("br")) {
+				f.append("\n");
+			}
+			if(k.equals("#text")) {
+				boolean b = true;
+				int fstyle = Font.STYLE_PLAIN;
+				int fsize = Font.SIZE_SMALL;
+				StringItem st = new StringItem("", v);
+				st.setLayout(Item.LAYOUT_2);
+				if(n.getParentNode() != null) {
+					Node pn = n;
+					String pk;
+					while(!((pn = pn.getParentNode()) == null || (pk = pn.getNodeName()).equals("body"))) {
+
+						//System.out.println(":PARENT NODE " + pk);
+						if(pk.equals("a")) {
+							String link = null;
+							NamedNodeMap atr = pn.getAttributes();
+							if(atr.getNamedItem("href") != null) {
+								link = atr.getNamedItem("href").getNodeValue();
+							}
+							st.addCommand(postLinkItemCmd);
+							st.setDefaultCommand(postLinkItemCmd);
+							st.setItemCommandListener(JChMIDlet.this);
+							links.put(st, link);
+						}
+						if(pk.equals("span")) {
+							String cls = null;
+							NamedNodeMap atr = pn.getAttributes();
+							if(atr.getNamedItem("class") != null) {
+								cls = atr.getNamedItem("class").getNodeValue();
+							}
+							if(cls.equals("u") || cls.equals("o")) {
+								fstyle |= Font.STYLE_UNDERLINED;
+							}
+							if(cls.equals("spoiler")) {
+								st.setText("[спойлер]");
+								st.addCommand(postSpoilerItemCmd);
+								st.setDefaultCommand(postSpoilerItemCmd);
+								st.setItemCommandListener(JChMIDlet.this);
+								spoilers.put(st, v);
+							}
+						}
+						if(pk.equals("h1")) {
+							fsize = Font.SIZE_LARGE;
+							fstyle |= Font.STYLE_BOLD;
+						}
+						if(pk.equals("i") || pk.equals("b") || pk.equals("strong")) {
+							fstyle |= Font.STYLE_BOLD;
+						}
+						if(pk.equals("em")) {
+							fstyle |= Font.STYLE_ITALIC;
+						}
+						if(pk.equals("sub")) {
+							fstyle |= Font.STYLE_UNDERLINED;
+						}
+					}
+					if(v.endsWith(" ")) {
+						st.setText(v.substring(0, v.length()-1));
+						f.append(st);
+						b = false;
+						Spacer s2 = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
+						s2.setLayout(Item.LAYOUT_2);
+						f.append(s2);
+					}
+				}
+				Font font = getFont(0, fstyle, fsize);
+				st.setFont(font);
+				
+				if(b) f.append(st);
+			} else if(n.hasChildNodes()) {
+				recursionParse(f, n.getChildNodes());
+			}
+		}
 	}
 
 	protected void addFile(ImageItem img, String path, String thumb) {
