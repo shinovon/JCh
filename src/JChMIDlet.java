@@ -22,8 +22,6 @@ import javax.microedition.lcdui.TextBox;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.midlet.MIDlet;
 
-import com.nokia.mid.ui.DisplayableInvoker;
-
 import cc.nnproject.json.JSON;
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
@@ -42,8 +40,21 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			  "<h1>JCh</h1><br>"
 			+ "версия <ver><br><br>"
 			+ "Клиент <a href=\"https://2ch.hk\">2ch.hk</a> для Symbian/J2ME устройств<br><br>"
-			+ "Разработал<br>"
-			+ "Shinovon (<a href=\"http://nnproject.cc\">nnproject.cc</a>)";
+			+ "<b>Разработал</b><br>"
+			+ "Shinovon (<a href=\"http://nnproject.cc\">nnproject.cc</a>)<br><br>"
+			+ "<b>Использованые библиотеки</b><br>"
+			+ "org.w3c.dom<br>"
+			+ "org.w3c.tidy<br>"
+			+ "cc.nnproject.json<br><br>"
+			+ "<b>Лицензии</b><br>"
+			+ "Copyright (c) 1998-2000 World Wide Web Consortium (Massachusetts<br>"
+			+ "Institute of Technology, Institut National de Recherche en<br>"
+			+ "Informatique et en Automatique, Keio University). All Rights<br>"
+			+ "Reserved.<br><br>"
+			+ "(c) 1998-2000 (W3C) MIT, INRIA, Keio University<br>"
+			+ "See Tidy.java for the copyright notice.<br>"
+			+ "Derived from <a href=\"http://www.w3.org/People/Raggett/tidy\"><br>"
+			+ "HTML Tidy Release 4 Aug 2000</a>";
 
 	private static Command exitCmd = new Command("Выход", Command.EXIT, 0);
 	private static Command backCmd = new Command("Назад", Command.BACK, 0);
@@ -62,8 +73,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static Command postCommentCmd = new Command("Ответить в тред", Command.SCREEN, 0);
 	private static Command aboutCmd = new Command("О программе", Command.SCREEN, 0);
 	private static Command settingsCmd = new Command("Настройки", Command.SCREEN, 0);
-	private static Command agreeCmd = new Command("Да", Command.OK, 0);
-	private static Command disagreeCmd = new Command("Нет", Command.EXIT, 0);
+	//private static Command agreeCmd = new Command("Да", Command.OK, 0);
+	//private static Command disagreeCmd = new Command("Нет", Command.EXIT, 0);
 	private static Command postCmd = new Command("Запостить", Command.OK, 0);
 	private static Command textOkCmd = new Command("Ок", Command.OK, 0);
 	private static Display display;
@@ -84,6 +95,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private Form postingFrm;
 	private TextField boardField;
 	private TextField boardSearchField;
+
+	private TextField postSubjectField;
+	private TextField postTextField;
+	private StringItem postTextBtn;
+	private TextBox tempTextBox;
 	
 	private String currentBoard;
 	private String currentThread;
@@ -137,19 +153,10 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private int maxPostsCount = 10;
 	private boolean time2ch;
 
-	private TextField postSubjectField;
-
-	private TextField postTextField;
-
-	private StringItem postTextBtn;
-
 	private String postThread;
-
 	private String postBoard;
 
-	private TextBox tempTextBox;
-
-	private Tidy tidy;
+	private static Tidy tidy;
 
 	
 	//private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
@@ -166,6 +173,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		mainFrm.setCommandListener(this);
 		mainFrm.addCommand(exitCmd);
 		mainFrm.addCommand(aboutCmd);
+		mainFrm.addCommand(settingsCmd);
 		mainFrm.append(boardField = new TextField("", "", 8, TextField.ANY));
 		boardField.setLabel("Доска");
 		boardField.addCommand(boardFieldCmd);

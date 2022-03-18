@@ -5,7 +5,7 @@ import java.util.Vector;
 
 /**
  * JSON Library by nnproject.cc<br>
- * Usage:<p><code>JSONObject obj = NNJSON.getObject(str);</code>
+ * Usage:<p><code>JSONObject obj = JSON.getObject(str);</code>
  * @author Shinovon
  * @version 1.0
  */
