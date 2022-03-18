@@ -393,7 +393,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			}
 		} else if(c == postLinkItemCmd) {
 			String path = (String) links.get(item);
-			System.out.println("Link: " + path);
+			System.out.println(path);
 			if(path != null) {
 				if(path.startsWith("/") || path.startsWith("https://2ch.hk/")) {
 					if(path.indexOf("/res/") != -1 && path.indexOf(".html") != -1) {
@@ -495,7 +495,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		if(threadFrm != null) {
 			clearThreadData();
 		}
-		System.out.println("Thread: " + id);
+		System.out.println(id);
 		currentThread = id;
 		Thread t = lastThread = new Thread() {
 			public void run() {
@@ -575,12 +575,19 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private void parsePosts(JSONArray posts, int offset) {
 		int l = posts.size();
 		if(offset != 0) {
+			StringItem s = new StringItem(null, "");
+			threadFrm.append(s);
 			StringItem btn = new StringItem(null, "Предыдущие посты");
 			btn.setLayout(Item.LAYOUT_CENTER);
 			btn.addCommand(prevPostsItemCmd);
 			btn.setDefaultCommand(prevPostsItemCmd);
 			btn.setItemCommandListener(JChMIDlet.this);
 			threadFrm.append(btn);
+			if(Util.platform.indexOf("S60") > -1 && Util.platform.indexOf("=3.2") == -1)
+			try {
+				display.setCurrentItem(s);
+			} catch (Throwable e) {
+			}
 		}
 		for(int i = 0; i < l /*&& i < 30*/; i++) {
 			try {
@@ -654,12 +661,12 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	
 	protected void parseHtmlText(Form f, String s) {
 		Document doc = tidy.parseDOM("<html>"+s+"</html>");
-		System.out.println(s);
-		System.out.println("doc: " + doc);
+		//System.out.println(s);
+		//System.out.println("doc: " + doc);
 		Element e = doc.getDocumentElement();
-		System.out.println("e: " + e);
+		//System.out.println("e: " + e);
 		NodeList nl = e.getChildNodes();
-		System.out.println("nl: " + nl);
+		//System.out.println("nl: " + nl);
 		recursionParse(f, nl);
 		/*
 		return;
@@ -922,7 +929,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			txt = txt.substring(0, txt.length() - 1);
 		final String board = txt;
 		currentBoard = board;
-		System.out.println("Board: " + board);
+		System.out.println(board);
 		createBoard(board);
 	}
 	
