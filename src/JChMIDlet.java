@@ -47,14 +47,14 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			+ "org.w3c.tidy<br>"
 			+ "cc.nnproject.json<br><br>"
 			+ "<b>Лицензии</b><br>"
-			+ "Copyright (c) 1998-2000 World Wide Web Consortium (Massachusetts<br>"
-			+ "Institute of Technology, Institut National de Recherche en<br>"
-			+ "Informatique et en Automatique, Keio University). All Rights<br>"
-			+ "Reserved.<br><br>"
 			+ "(c) 1998-2000 (W3C) MIT, INRIA, Keio University<br>"
 			+ "See Tidy.java for the copyright notice.<br>"
 			+ "Derived from <a href=\"http://www.w3.org/People/Raggett/tidy\"><br>"
-			+ "HTML Tidy Release 4 Aug 2000</a>";
+			+ "HTML Tidy Release 4 Aug 2000</a><br><br>"
+			+ "Copyright (c) 1998-2000 World Wide Web Consortium (Massachusetts<br>"
+			+ "Institute of Technology, Institut National de Recherche en<br>"
+			+ "Informatique et en Automatique, Keio University). All Rights<br>"
+			+ "Reserved.";
 
 	private static Command exitCmd = new Command("Выход", Command.EXIT, 0);
 	private static Command backCmd = new Command("Назад", Command.BACK, 0);
@@ -126,8 +126,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					synchronized(thumbLoadLock) {
 						thumbLoadLock.wait();
 					}
-					int l;
-					while((l = thumbsToLoad.size()) > 0) {
+					while(thumbsToLoad.size() > 0) {
 						int i = 0;
 						Object[] o = (Object[]) thumbsToLoad.elementAt(i);
 						thumbsToLoad.removeElementAt(i);
@@ -280,11 +279,12 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		}.start();
 	}
 
-	public static void getResult(String string) throws Exception {
-		System.out.println(string);
+	public static void getResult(String s) throws Exception {
+		System.out.println(s);
 		result = null;
-		result = Util.getString(prepareUrl(string));
-		if(result.toString().length() == 0) throw new IOException("Empty response");
+		String s2 = s;
+		result = Util.getString(prepareUrl(s));
+		if(result.toString().length() == 0) throw new IOException("Empty response: " + s2);
 		char c = ((String) result).charAt(0);
 		if(c == '{')
 			result = JSON.getObject((String) result);
