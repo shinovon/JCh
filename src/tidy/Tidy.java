@@ -157,9 +157,6 @@ public class Tidy {
 
     private boolean       initialized = false;
     private Configuration configuration = null;
-    private String        inputStreamName = "InputStream";
-    private int           parseErrors = 0;
-    private int           parseWarnings = 0;
 
     public Tidy()
     {
@@ -169,26 +166,6 @@ public class Tidy {
     public Configuration getConfiguration()
     {
         return configuration;
-    }
-
-    /**
-     * ParseErrors - the number of errors that occurred in the most
-     * recent parse operation
-     */
-
-    public int getParseErrors()
-    {
-        return parseErrors;
-    }
-
-    /**
-     * ParseWarnings - the number of warnings that occurred in the most
-     * recent parse operation
-     */
-
-    public int getParseWarnings()
-    {
-        return parseWarnings;
     }
 
     /**
@@ -778,43 +755,6 @@ public class Tidy {
     }
 
     /**
-     * DocType - user specified doctype
-     * omit | auto | strict | loose | <i>fpi</i>
-     * where the <i>fpi</i> is a string similar to
-     *    &quot;-//ACME//DTD HTML 3.14159//EN&quot;
-     * Note: for <i>fpi</i> include the double-quotes in the string.
-     * @see tidy.Configuration#docTypeStr
-     * @see tidy.Configuration#docTypeMode
-     */
-
-    public void setDocType(String doctype)
-    {
-    }
-
-    public String getDocType()
-    {
-        String result = null;
-        switch (configuration.docTypeMode) {
-        case Configuration.DOCTYPE_OMIT:
-            result = "omit";
-            break;
-        case Configuration.DOCTYPE_AUTO:
-            result = "auto";
-            break;
-        case Configuration.DOCTYPE_STRICT:
-            result = "strict";
-            break;
-        case Configuration.DOCTYPE_LOOSE:
-            result = "loose";
-            break;
-        case Configuration.DOCTYPE_USER:
-            result = configuration.docTypeStr;
-            break;
-        }
-        return result;
-    }
-
-    /**
      * LogicalEmphasis - replace i by em and b by strong
      * @see tidy.Configuration#LogicalEmphasis
      */
@@ -966,21 +906,6 @@ public class Tidy {
     }
 
     /**
-     * InputStreamName - the name of the input stream (printed in the
-     * header information).
-     */
-    public void setInputStreamName(String name)
-    {
-        if (name != null)
-            inputStreamName = name;
-    }
-
-    public String getInputStreamName()
-    {
-        return inputStreamName;
-    }
-
-    /**
      * first time initialization which should
      * precede reading the command line
      */
@@ -1061,9 +986,6 @@ public class Tidy {
         if (!initialized)
             return null;
 
-        parseErrors = 0;
-        parseWarnings = 0;
-
         /* ensure config is self-consistent */
         configuration.adjust();
 
@@ -1083,7 +1005,6 @@ public class Tidy {
             */
             lexer.in.lexer = lexer;
             {
-                lexer.warnings = 0;
 
                 document = ParserImpl.parseDocument(lexer);
 
@@ -1092,9 +1013,6 @@ public class Tidy {
                     return null;
                 }
             }
-
-            parseWarnings = lexer.warnings;
-            parseErrors = lexer.errors;
 
             // Try to close the InputStream but only if if we created it.
 

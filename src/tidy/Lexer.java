@@ -75,10 +75,6 @@ public class Lexer {
     public boolean insertspace;   /* when space is moved after end tag */
     public boolean excludeBlocks;  /* Netscape compatibility */
     public boolean exiled;    /* true if moved out of table */
-    public boolean isvoyager; /* true if xmlns attribute on html element */
-    public short versions;  /* bit vector of HTML versions */
-    public int doctype;    /* version as given by doctype (if any) */
-    public boolean badDoctype; /* e.g. if html or PUBLIC is missing */
     public int txtstart;  /* start of current node */
     public int txtend;    /* end of current node */
     public short state;     /* state of lexer's finite state machine */
@@ -123,10 +119,6 @@ public class Lexer {
         this.pushed = false;
         this.insertspace = false;
         this.exiled = false;
-        this.isvoyager = false;
-        this.versions = Dict.VERS_EVERYTHING;
-        this.doctype = Dict.VERS_UNKNOWN;
-        this.badDoctype = false;
         this.txtstart = 0;
         this.txtend = 0;
         this.token = null;
@@ -467,248 +459,6 @@ public class Lexer {
         }
     }
 
-    /* choose what version to use for new doctype */
-    public short HTMLVersion()
-    {
-        short versions;
-
-        versions = this.versions;
-
-        if ((versions & Dict.VERS_HTML20) != 0)
-            return Dict.VERS_HTML20;
-
-        if ((versions & Dict.VERS_HTML32) != 0)
-            return Dict.VERS_HTML32;
-
-        if ((versions & Dict.VERS_HTML40_STRICT) != 0)
-            return Dict.VERS_HTML40_STRICT;
-
-        if ((versions & Dict.VERS_HTML40_LOOSE) != 0)
-            return Dict.VERS_HTML40_LOOSE;
-
-        if ((versions & Dict.VERS_FRAMES) != 0)
-            return Dict.VERS_FRAMES;
-
-        return Dict.VERS_UNKNOWN;
-    }
-
-    public String HTMLVersionName()
-    {
-        short guessed;
-        int j;
-
-        guessed = apparentVersion();
-
-        for (j = 0; j < W3CVersion.length; ++j)
-        {
-            if (guessed == W3CVersion[j].code)
-            {
-                if (this.isvoyager)
-                    return W3CVersion[j].voyagerName;
-
-                return W3CVersion[j].name;
-            }
-        }
-
-        return null;
-    }
-
-    /* return true if substring s is in p and isn't all in upper case */
-    /* this is used to check the case of SYSTEM, PUBLIC, DTD and EN */
-    /* len is how many chars to check in p */
-    private static boolean findBadSubString(String s, String p, int len)
-    {
-        int n = s.length();
-        int i = 0;
-        String ps;
-
-        while (n < len)
-        {
-            ps = p.substring(i, i + n);
-            if (wstrcasecmp(s, ps) == 0)
-                return (!ps.equals(s.substring(0, n)));
-
-            ++i;
-            --len;
-        }
-
-        return false;
-    }
-
-    public boolean checkDocTypeKeyWords(Node doctype)
-    {
-        int len = doctype.end - doctype.start;
-        String s = getString(this.lexbuf, doctype.start, len);
-
-        return !(
-            findBadSubString("SYSTEM", s, len) ||
-            findBadSubString("PUBLIC", s, len) ||
-            findBadSubString("//DTD", s, len) ||
-            findBadSubString("//W3C", s, len) ||
-            findBadSubString("//EN", s, len)
-            );
-    }
-
-    /* examine <!DOCTYPE> to identify version */
-    public short findGivenVersion(Node doctype)
-    {
-        String p, s;
-        int i, j;
-        int len;
-        String str1;
-        String str2;
-
-        /* if root tag for doctype isn't html give up now */
-        str1 = getString(this.lexbuf, doctype.start, 5);
-        if (wstrcasecmp(str1, "html ") != 0)
-            return 0;
-
-        if (!checkDocTypeKeyWords(doctype))
-            Report.warning(this, doctype, null, Report.DTYPE_NOT_UPPER_CASE);
-
-        /* give up if all we are given is the system id for the doctype */
-        str1 = getString(this.lexbuf, doctype.start + 5, 7);
-        if (wstrcasecmp(str1, "SYSTEM ") == 0)
-        {
-            /* but at least ensure the case is correct */
-            if (!str1.substring(0, 6).equals("SYSTEM"))
-                System.arraycopy( getBytes("SYSTEM"), 0,
-                                  this.lexbuf, doctype.start + 5, 6 );
-            return 0;  /* unrecognized */
-        }
-
-        if (wstrcasecmp(str1, "PUBLIC ") == 0)
-        {
-            if (!str1.substring(0, 6).equals("PUBLIC"))
-                System.arraycopy( getBytes("PUBLIC "), 0,
-                                  this.lexbuf, doctype.start + 5, 6 );
-        }
-        else
-            this.badDoctype = true;
-
-        for (i = doctype.start; i < doctype.end; ++i)
-        {
-            if (this.lexbuf[i] == (byte)'"')
-            {
-                str1 = getString( this.lexbuf, i + 1, 12 );
-                str2 = getString( this.lexbuf, i + 1, 13 );
-                if (str1.equals("-//W3C//DTD "))
-                {
-                    /* compute length of identifier e.g. "HTML 4.0 Transitional" */
-                    for (j = i + 13; j < doctype.end && this.lexbuf[j] != (byte)'/'; ++j);
-                    len = j - i - 13;
-                    p = getString( this.lexbuf, i + 13, len );
-
-                    for (j = 1; j < W3CVersion.length; ++j)
-                    {
-                        s = W3CVersion[j].name;
-                        if (len == s.length() && s.equals(p))
-                            return W3CVersion[j].code;
-                    }
-
-                    /* else unrecognized version */
-                }
-                else if (str2.equals("-//IETF//DTD "))
-                {
-                    /* compute length of identifier e.g. "HTML 2.0" */
-                    for (j = i + 14; j < doctype.end && this.lexbuf[j] != (byte)'/'; ++j);
-                    len = j - i - 14;
-
-                    p = getString( this.lexbuf, i + 14, len );
-                    s = W3CVersion[0].name;
-                    if (len == s.length() && s.equals(p))
-                        return W3CVersion[0].code;
-
-                    /* else unrecognized version */
-                }
-                break;
-            }
-        }
-
-        return 0;
-    }
-
-    public void fixHTMLNameSpace(Node root, String profile)
-    {
-        Node node;
-        AttVal prev, attr;
-
-        for (node = root.content; 
-                node != null && node.tag != configuration.tt.tagHtml; node = node.next);
-
-        if (node != null)
-        {
-            prev = null;
-
-            for (attr = node.attributes; attr != null; attr = attr.next)
-            {
-                if (attr.attribute.equals("xmlns"))
-                    break;
-
-                prev = attr;
-            }
-
-            if (attr != null)
-            {
-                if (!attr.value.equals(profile))
-                {
-                    Report.warning(this, node, null, Report.INCONSISTENT_NAMESPACE);
-                    attr.value = profile;
-                }
-            }
-            else
-            {
-                attr = new AttVal( node.attributes, null, (int)'"',
-                                   "xmlns", profile );
-                attr.dict =
-                    AttributeTable.getDefaultAttributeTable().findAttribute( attr );
-                node.attributes = attr;
-            }
-        }
-    }
-
-    public short apparentVersion()
-    {
-        switch (this.doctype)
-        {
-        case Dict.VERS_UNKNOWN:
-            return HTMLVersion();
-
-        case Dict.VERS_HTML20:
-            if ((this.versions & Dict.VERS_HTML20) != 0)
-                return Dict.VERS_HTML20;
-
-            break;
-
-        case Dict.VERS_HTML32:
-            if ((this.versions & Dict.VERS_HTML32) != 0)
-                return Dict.VERS_HTML32;
-
-            break; /* to replace old version by new */
-
-        case Dict.VERS_HTML40_STRICT:
-            if ((this.versions & Dict.VERS_HTML40_STRICT) != 0)
-                return Dict.VERS_HTML40_STRICT;
-
-            break;
-
-        case Dict.VERS_HTML40_LOOSE:
-            if ((this.versions & Dict.VERS_HTML40_LOOSE) != 0)
-                return Dict.VERS_HTML40_LOOSE;
-
-            break; /* to replace old version by new */
-
-        case Dict.VERS_FRAMES:
-            if ((this.versions & Dict.VERS_FRAMES) != 0)
-                return Dict.VERS_FRAMES;
-
-            break;
-        }
-
-        Report.warning(this, null, null, Report.INCONSISTENT_VERSION);
-        return this.HTMLVersion();
-    }
-
     public Node inferredTag(String name)
     {
         Node node;
@@ -737,106 +487,6 @@ public class Lexer {
         return true;
     }
 
-    /*
-      create a text node for the contents of
-      a CDATA element like style or script
-      which ends with </foo> for some foo.
-    */
-    public Node getCDATA(Node container)
-    {
-        int c, lastc, start, len, i;
-        String str;
-        boolean endtag = false;
-
-        this.lines = this.in.curline;
-        this.columns = this.in.curcol;
-        this.waswhite = false;
-        this.txtstart = this.lexsize;
-        this.txtend = this.lexsize;
-
-        lastc = (int)'\0';
-        start = -1;
-
-        while (true)
-        {
-            c = this.in.readChar();
-            if (c == StreamIn.EndOfStream) break;
-            /* treat \r\n as \n and \r as \n */
-
-            if (c == (int)'/' && lastc == (int)'<')
-            {
-                if (endtag)
-                {
-                    this.lines = this.in.curline;
-                    this.columns = this.in.curcol - 3;
-
-                    Report.warning(this, null, null, Report.BAD_CDATA_CONTENT);
-                }
-
-                start = this.lexsize + 1;  /* to first letter */
-                endtag = true;
-            }
-            else if (c == (int)'>' && start >= 0)
-            {
-                len = this.lexsize - start;
-                if (len == container.element.length())
-                {
-                    str = getString( this.lexbuf, start, len );
-                    if (Lexer.wstrcasecmp(str, container.element) == 0)
-                    {
-                        this.txtend = start - 2;
-                        break;
-                    }
-                }
-
-                this.lines = this.in.curline;
-                this.columns = this.in.curcol - 3;
-
-                Report.warning(this, null, null, Report.BAD_CDATA_CONTENT);
-
-                /* if javascript insert backslash before / */
-
-                if (ParserImpl.isJavaScript(container))
-                {
-                    for (i = this.lexsize; i > start-1; --i)
-                        this.lexbuf[i] = this.lexbuf[i-1];
-
-                    this.lexbuf[start-1] = (byte)'\\';
-                    this.lexsize++;
-                }
-
-                start = -1;
-            }
-            else if (c == (int)'\r')
-            {
-                c = this.in.readChar();
-
-                if (c != (int)'\n')
-                    this.in.ungetChar(c);
-
-                c = (int)'\n';
-            }
-
-            addCharToLexer((int)c);
-            this.txtend = this.lexsize;
-            lastc = c;
-        }
-
-        if (c == StreamIn.EndOfStream)
-            Report.warning(this, container, null, Report.MISSING_ENDTAG_FOR);
-
-        if (this.txtend > this.txtstart)
-        {
-            this.token = newNode(Node.TextNode,
-                                  this.lexbuf,
-                                  this.txtstart,
-                                  this.txtend);
-            return this.token;
-        }
-
-        return null;
-    }
-
     public void ungetToken()
     {
         this.pushed = true;
@@ -859,7 +509,6 @@ public class Lexer {
     {
         short map;
         int c = 0;
-        int lastc;
         int badcomment = 0;
         MutableBoolean isempty = new MutableBoolean();
         AttVal attributes;
@@ -954,7 +603,6 @@ public class Lexer {
                     else /* prev char wasn't white */
                     {
                         this.waswhite = true;
-                        lastc = c;
 
                         if (mode != Preformatted && mode != IgnoreMarkup && c != ' ')
                             changeChar((byte)' ');
@@ -1347,20 +995,6 @@ public class Lexer {
 
                 this.state = LEX_CONTENT;
 
-                if (this.token.tag == null)
-                    Report.error(this, null, this.token, Report.UNKNOWN_ELEMENT);
-                else if (!this.configuration.XmlTags)
-                {
-                    this.versions &= this.token.tag.versions;
-                    
-                    if ((this.token.tag.versions & Dict.VERS_PROPRIETARY) != 0)
-                    {
-                        if (!this.configuration.MakeClean && (this.token.tag == configuration.tt.tagNobr ||
-                                                this.token.tag == configuration.tt.tagWbr))
-                            Report.warning(this, null, this.token, Report.PROPRIETARY_ELEMENT);
-                    }
-                }
-
                 return this.token;  /* return start tag */
 
             case LEX_COMMENT:  /* seen <!-- so look for --> */
@@ -1459,7 +1093,7 @@ public class Lexer {
                                       this.txtstart,
                                       this.txtend);
                 /* make a note of the version named by the doctype */
-                this.doctype = findGivenVersion(this.token);
+               // this.doctype = findGivenVersion(this.token);
                 return this.token;
 
             case LEX_PROCINSTR:  /* seen <? so look for '>' */
@@ -1741,47 +1375,7 @@ public class Lexer {
 
         this.txtstart = this.txtend;
         return asp;
-    }   
- 
-    /*
-     PHP is like ASP but is based upon XML
-     processing instructions, e.g. <?php ... ?>
-    */
-    public Node parsePhp()
-    {
-        int c;
-        Node php = null;
-
-        this.txtstart = this.lexsize;
-
-        for (;;)
-        {
-            c = this.in.readChar();
-            addCharToLexer(c);
-
-
-            if (c != '?')
-                continue;
-
-            c = this.in.readChar();
-            addCharToLexer(c);
-
-            if (c == '>')
-                break;
-        }
-
-        this.lexsize -= 2;
-        this.txtend = this.lexsize;
-
-        if (this.txtend > this.txtstart)
-            php = newNode(Node.PhpTag,
-                           this.lexbuf,
-                           this.txtstart,
-                           this.txtend);
-
-        this.txtstart = this.txtend;
-        return php;
-    }   
+    }
 
     /* consumes the '>' terminating start tags */
     public String parseAttribute(MutableBoolean isempty, MutableObject asp,
@@ -1830,7 +1424,7 @@ public class Lexer {
                 }
                 else if (c == '?')
                 {
-                    php.setObject(parsePhp());
+                   // php.setObject(parsePhp());
                     return null;
                 }
 
@@ -1982,10 +1576,9 @@ public class Lexer {
         int len = 0;
         int start;
         short map;
-        boolean seen_gt = false;
         boolean munge = true;
         int c = 0;
-        int lastc, delim, quotewarning;
+        int lastc, delim;
         String value;
 
         delim = 0;
@@ -2068,7 +1661,6 @@ public class Lexer {
        check for quote mark if needed
      */
 
-        quotewarning = 0;
         start = this.lexsize;
         c = '\0';
 
@@ -2144,12 +1736,6 @@ public class Lexer {
 
                     c = '\n';
                 }
-
-                if (c == '\n' || c == '<' || c == '>')
-                    ++quotewarning;
-
-                if (c == '>')
-                    seen_gt = true;
             }
 
             if (c == '&')
@@ -2193,21 +1779,6 @@ public class Lexer {
                 c += (int)('a' - 'A');
 
             addCharToLexer(c);
-        }
-
-        if (quotewarning > 10 && seen_gt && munge)
-        {
-            /*
-               there is almost certainly a missing trailling quote mark
-               as we have see too many newlines, < or > characters.
-
-               an exception is made for Javascript attributes and the
-               javascript URL scheme which may legitimately include < and >
-            */
-            if (
-                !(AttributeTable.getDefaultAttributeTable().isUrl(name) &&
-                  (getString(this.lexbuf, start, 11)).equals("javascript:")))
-                    Report.error(this, null, null, Report.SUSPECTED_MISSING_QUOTE);
         }
 
         len = this.lexsize - start;
@@ -2348,7 +1919,7 @@ public class Lexer {
         if ((node.tag.model & Dict.CM_OBJECT) != 0)
             return;
 
-        if (node.tag != configuration.tt.tagFont && isPushed(node))
+        if (isPushed(node))
             return;
 
         // make sure there is enough space for the stack
@@ -2544,19 +2115,10 @@ public class Lexer {
         if (element.tag == configuration.tt.tagA && element.attributes != null)
             return false;
 
-        if (element.tag == configuration.tt.tagP && !this.configuration.DropEmptyParas)
-            return false;
-
         if (element.tag == null)
             return false;
 
         if ((element.tag.model & Dict.CM_ROW) != 0)
-            return false;
-
-        if (element.tag == configuration.tt.tagApplet)
-            return false;
-
-        if (element.tag == configuration.tt.tagObject)
             return false;
 
         if (element.attributes != null &&
@@ -2615,7 +2177,7 @@ public class Lexer {
     private static final short LEX_COMMENT     = 4;
     private static final short LEX_DOCTYPE     = 5;
     private static final short LEX_PROCINSTR   = 6;
-    private static final short LEX_ENDCOMMENT  = 7;
+    //private static final short LEX_ENDCOMMENT  = 7;
     private static final short LEX_CDATA       = 8;
     private static final short LEX_SECTION     = 9;
     private static final short LEX_ASP         = 10;
@@ -2681,68 +2243,4 @@ public class Lexer {
 
         return c;
     }
-
-
-    private static class W3CVersionInfo
-    {
-        String name;
-        String voyagerName;
-        String profile;
-        short code;
-
-        public W3CVersionInfo( String name,
-                               String voyagerName,
-                               String profile,
-                               short code )
-        {
-            this.name = name;
-            this.voyagerName = voyagerName;
-            this.profile = profile;
-            this.code = code;
-        }
-    }
-
-    /* the 3 URIs  for the XHTML 1.0 DTDs */
-    private static final String voyager_loose    = "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd";
-    private static final String voyager_strict   = "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd";
-    private static final String voyager_frameset = "http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd";
-
-    private static final String XHTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
-
-    private static Lexer.W3CVersionInfo[] W3CVersion =
-    {
-        new W3CVersionInfo("HTML 4.01",
-                           "XHTML 1.0 Strict",
-                           voyager_strict,
-                           Dict.VERS_HTML40_STRICT),
-        new W3CVersionInfo("HTML 4.01 Transitional",
-                           "XHTML 1.0 Transitional",
-                           voyager_loose,
-                           Dict.VERS_HTML40_LOOSE),
-        new W3CVersionInfo("HTML 4.01 Frameset",
-                           "XHTML 1.0 Frameset",
-                           voyager_frameset,
-                           Dict.VERS_FRAMES),
-        new W3CVersionInfo("HTML 4.0",
-                           "XHTML 1.0 Strict",
-                           voyager_strict,
-                           Dict.VERS_HTML40_STRICT),
-        new W3CVersionInfo("HTML 4.0 Transitional",
-                           "XHTML 1.0 Transitional",
-                           voyager_loose,
-                           Dict.VERS_HTML40_LOOSE),
-        new W3CVersionInfo("HTML 4.0 Frameset",
-                           "XHTML 1.0 Frameset",
-                           voyager_frameset,
-                           Dict.VERS_FRAMES),
-        new W3CVersionInfo("HTML 3.2",
-                           "XHTML 1.0 Transitional",
-                           voyager_loose,
-                           Dict.VERS_HTML32),
-        new W3CVersionInfo("HTML 2.0",
-                           "XHTML 1.0 Strict",
-                           voyager_strict,
-                           Dict.VERS_HTML20)
-    };
-
 }

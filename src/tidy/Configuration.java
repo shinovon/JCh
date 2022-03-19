@@ -130,32 +130,12 @@ public class Configuration {
         if (wraplen == 0)
             wraplen = 0x7FFFFFFF;
 
-        /* Word 2000 needs o:p to be declared as inline */
-        if (Word2000)
-        {
-            tt.defineInlineTag("o:p");
-        }
-
         /* XHTML is written in lower case */
         if (xHTML)
         {
             XmlOut = true;
             UpperCaseTags = false;
             UpperCaseAttrs = false;
-        }
-
-        /* if XML in, then XML out */
-        if (XmlTags)
-        {
-            XmlOut = true;
-            XmlPIs = true;
-        }
-
-        /* XML requires end tags */
-        if (XmlOut)
-        {
-            QuoteAmpersand = true;
-            HideEndTags = false;
         }
     }
 

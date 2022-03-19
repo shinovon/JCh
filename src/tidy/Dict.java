@@ -99,12 +99,10 @@ public class Dict {
         this.versions = versions;
         this.model = model;
         this.parser = parser;
-        this.chkattrs = chkattrs;
     }
 
     public String name;
     public short versions;
     public int model;
     public Parser parser;
-    private Object chkattrs;
 }

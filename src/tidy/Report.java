@@ -141,65 +141,26 @@ public class Report {
 
     public static void encodingError(Lexer lexer, short code, int c)
     {
-        lexer.warnings++;
-
-        if (lexer.configuration.ShowWarnings)
-        {
-            position(lexer);
-
-            if (code == WINDOWS_CHARS)
-            {
-                lexer.badChars |= WINDOWS_CHARS;
-            }
-
-        }
     }
 
     public static void entityError(Lexer lexer, short code, String entity, int c)
     {
-        lexer.warnings++;
-
-        if (lexer.configuration.ShowWarnings)
-        {
-            position(lexer);
-        }
     }
 
     public static void attrError(Lexer lexer, Node node, String attr, short code)
     {
-        lexer.warnings++;
-
-        /* keep quiet after 6 errors */
-        if (lexer.errors > 6)
-            return;
     }
 
     public static void warning(Lexer lexer, Node element, Node node, short code)
     {
-
-        lexer.warnings++;
-
-        /* keep quiet after 6 errors */
-        if (lexer.errors > 6)
-            return;
-
     }
 
     public static void error(Lexer lexer, Node element, Node node, short code)
     {
-        lexer.warnings++;
-
     }
 
     public static void errorSummary(Lexer lexer)
     {
-        /* adjust badAccess to that its null if frames are ok */
-        if ((lexer.badAccess & (USING_FRAMES | USING_NOFRAMES)) != 0)
-        {
-            if (!(((lexer.badAccess & USING_FRAMES) != 0) && ((lexer.badAccess & USING_NOFRAMES) == 0)))
-                lexer.badAccess &= ~(USING_FRAMES | USING_NOFRAMES);
-        }
-
     }
 
 }

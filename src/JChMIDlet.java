@@ -206,17 +206,23 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			version = getAppProperty("MIDlet-Version");
 		started = true;
 		display = Display.getDisplay(this);
-		display.setCurrent(mainFrm);
 		thumbLoaderThread.setPriority(2);
 		thumbLoaderThread.start();
-		String s = Util.platform.toLowerCase();
-		if(s.indexOf("nux") != -1 || s.indexOf("win") != -1) {
-			Alert a = new Alert("");
-			a.setTitle("Предупреждение");
-			a.setString("В эмуляторе содержимое постов может отображаться некорректно!");
-			a.addCommand(Alert.DISMISS_COMMAND);
-			display.setCurrent(a, mainFrm);
+		boolean b = false;
+		String s = System.getProperty("os.name");
+		if(s != null) {
+			s = s.toLowerCase();
+			if(s.indexOf("nux") != -1 || s.indexOf("win") != -1 || s.indexOf("mac") != -1) {
+				System.out.println("123");
+				b = true;
+				Alert a = new Alert("");
+				a.setTitle("Предупреждение");
+				a.setString("В эмуляторе содержимое постов может отображаться некорректно!");
+				a.addCommand(Alert.DISMISS_COMMAND);
+				display.setCurrent(a, mainFrm);
+			}
 		}
+		if(!b) display(mainFrm);
 		
 	}
 

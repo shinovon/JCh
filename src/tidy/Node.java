@@ -211,36 +211,6 @@ public class Node {
 	}
     }
 
-    /* find doctype element */
-    public Node findDocType()
-    {
-        Node node;
-
-        for (node = this.content; 
-            node != null && node.type != DocTypeTag; node = node.next);
-
-        return node;
-    }
-
-    public void discardDocType()
-    {
-        Node node;
-
-        node = findDocType();
-        if (node != null)
-        {
-            if (node.prev != null)
-                node.prev.next = node.next;
-            else
-                node.parent.content = node.next;
-
-            if (node.next != null)
-                node.next.prev = node.prev;
-
-            node.next = null;
-        }
-    }
-
     /* remove node from markup tree and discard it */
     public static Node discardElement(Node element)
     {
@@ -357,7 +327,6 @@ public class Node {
 
     public static void trimEmptyElement(Lexer lexer, Node element)
     {
-        TagTable tt = lexer.configuration.tt;
 
         if (lexer.canPrune(element))
         {
@@ -365,13 +334,6 @@ public class Node {
                 Report.warning(lexer, element, null, Report.TRIM_EMPTY_ELEMENT);
 
             discardElement(element);
-        }
-        else if (element.tag == tt.tagP && element.content == null)
-        {
-            /* replace <p></p> by <br><br> to preserve formatting */
-            Node node = lexer.inferredTag("br");
-            Node.coerceNode(lexer, element, tt.tagBr);
-            Node.insertNodeAfterElement(element, node);
         }
     }
 
@@ -388,7 +350,6 @@ public class Node {
     public static void trimTrailingSpace(Lexer lexer, Node element, Node last)
     {
         byte c;
-        TagTable tt = lexer.configuration.tt;
 
         if (last != null && last.type == Node.TextNode &&
             last.end > last.start)
@@ -398,13 +359,6 @@ public class Node {
             if (c == 160 || c == (byte)' ')
             {
                 /* take care with <td>&nbsp;</td> */
-                if (element.tag == tt.tagTd ||
-                    element.tag == tt.tagTh)
-                {
-                    if (last.end > last.start + 1)
-                        last.end -= 1;
-                }
-                else
                 {
                     last.end -= 1;
 
@@ -502,10 +456,8 @@ public class Node {
     public static void trimSpaces(Lexer lexer, Node element)
     {
         Node text = element.content;
-        TagTable tt = lexer.configuration.tt;
 
-        if (text != null && text.type == Node.TextNode &&
-            element.tag != tt.tagPre)
+        if (text != null && text.type == Node.TextNode)
             trimInitialSpace(lexer, element, text);
 
         text = element.last;
@@ -526,22 +478,6 @@ public class Node {
         }
 
         return false;
-    }
-
-    /*
-     the doctype has been found after other tags,
-     and needs moving to before the html element
-    */
-    public static void insertDocType(Lexer lexer, Node element, Node doctype)
-    {
-        TagTable tt = lexer.configuration.tt;
-      
-        Report.warning(lexer, element, doctype, Report.DOCTYPE_AFTER_TAGS);
-
-        while (element.tag != tt.tagHtml)
-            element = element.parent;
-
-        insertNodeBeforeElement(element, doctype);
     }
 
     public Node findBody(TagTable tt)
@@ -567,36 +503,6 @@ public class Node {
     public boolean isElement()
     {
         return (this.type == StartTag || this.type == StartEndTag ? true : false);
-    }
-
-    /*
-     unexpected content in table row is moved to just before
-     the table in accordance with Netscape and IE. This code
-     assumes that node hasn't been inserted into the row.
-    */
-    public static void moveBeforeTable(Node row, Node node, TagTable tt)
-    {
-        Node table;
-
-        /* first find the table element */
-        for (table = row.parent; table != null; table = table.parent)
-        {
-            if (table.tag == tt.tagTable)
-            {
-                if (table.parent.content == table)
-                    table.parent.content = node;
-
-                node.prev = table.prev;
-                node.next = table;
-                table.prev = node;
-                node.parent = table.parent;
-        
-                if (node.prev != null)
-                    node.prev.next = node;
-
-                break;
-            }
-        }
     }
 
     /*

@@ -5,8 +5,6 @@
 
 package tidy;
 
-import dom.DOMException;
-
 /**
  *
  * DOMCDATASectionImpl

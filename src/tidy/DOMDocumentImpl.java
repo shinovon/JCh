@@ -110,13 +110,9 @@ public class DOMDocumentImpl extends DOMNodeImpl implements dom.Document {
                                             throws DOMException
     {
         Node node = new Node(Node.StartEndTag, null, 0, 0, tagName, tt);
-        if (node != null) {
-            if (node.tag == null)           // Fix Bug 121206
-              node.tag = tt.xmlTags;
-            return (dom.Element)node.getAdapter();
-        }
-        else
-            return null;
+        if (node.tag == null)           // Fix Bug 121206
+		  node.tag = tt.xmlTags;
+		return (dom.Element)node.getAdapter();
     }
 
     /**
@@ -135,10 +131,7 @@ public class DOMDocumentImpl extends DOMNodeImpl implements dom.Document {
     {
         byte[] textarray = Lexer.getBytes(data);
         Node node = new Node(Node.TextNode, textarray, 0, textarray.length);
-        if (node != null)
-            return (dom.Text)node.getAdapter();
-        else
-            return null;
+        return (dom.Text)node.getAdapter();
     }
 
     /**
@@ -148,10 +141,7 @@ public class DOMDocumentImpl extends DOMNodeImpl implements dom.Document {
     {
         byte[] textarray = Lexer.getBytes(data);
         Node node = new Node(Node.CommentTag, textarray, 0, textarray.length);
-        if (node != null)
-            return (dom.Comment)node.getAdapter();
-        else
-            return null;
+        return (dom.Comment)node.getAdapter();
     }
 
     /**
@@ -182,13 +172,9 @@ public class DOMDocumentImpl extends DOMNodeImpl implements dom.Document {
                                               throws DOMException
     {
         AttVal av = new AttVal(null, null, (int)'"', name, null);
-        if (av != null) {
-            av.dict =
-                AttributeTable.getDefaultAttributeTable().findAttribute(av);
-            return (dom.Attr)av.getAdapter();
-        } else {
-            return null;
-        }
+        av.dict =
+		    AttributeTable.getDefaultAttributeTable().findAttribute(av);
+		return (dom.Attr)av.getAdapter();
     }
 
     /**
