@@ -21,7 +21,7 @@ public class JSONObject extends AbstractJSON {
 	
 	public Object get(String name) throws JSONException {
 		try {
-			if (table.containsKey(name)) {
+			if (has(name)) {
 				if (JSON.parse_members) {
 					return table.get(name);
 				} else {
@@ -39,6 +39,7 @@ public class JSONObject extends AbstractJSON {
 	}
 	
 	public Object get(String name, Object def) {
+		if(!has(name)) return def;
 		try {
 			return get(name);
 		} catch (Exception e) {
@@ -56,7 +57,11 @@ public class JSONObject extends AbstractJSON {
 	
 	public String getString(String name, String def) {
 		try {
-			return get(name).toString();
+			Object o = get(name, def);
+			if(o == null || o instanceof String) {
+				return (String) o;
+			}
+			return o.toString();
 		} catch (Exception e) {
 			return def;
 		}
@@ -75,6 +80,7 @@ public class JSONObject extends AbstractJSON {
 	}
 	
 	public JSONObject getNullableObject(String name) {
+		if(!has(name)) return null;
 		try {
 			return getObject(name);
 		} catch (Exception e) {
@@ -91,6 +97,7 @@ public class JSONObject extends AbstractJSON {
 	}
 	
 	public JSONArray getNullableArray(String name) {
+		if(!has(name)) return null;
 		try {
 			return getArray(name);
 		} catch (Exception e) {
@@ -107,6 +114,7 @@ public class JSONObject extends AbstractJSON {
 	}
 	
 	public int getInt(String name, int def) {
+		if(!has(name)) return def;
 		try {
 			return getInt(name);
 		} catch (Exception e) {
@@ -119,6 +127,7 @@ public class JSONObject extends AbstractJSON {
 	}
 
 	public long getLong(String name, long def) {
+		if(!has(name)) return def;
 		try {
 			return getLong(name);
 		} catch (Exception e) {
@@ -131,6 +140,7 @@ public class JSONObject extends AbstractJSON {
 	}
 
 	public double getDouble(String name, double def) {
+		if(!has(name)) return def;
 		try {
 			return getDouble(name);
 		} catch (Exception e) {
@@ -151,6 +161,7 @@ public class JSONObject extends AbstractJSON {
 	}
 
 	public boolean getBoolean(String name, boolean def) {
+		if(!has(name)) return def;
 		try {
 			return getBoolean(name);
 		} catch (Exception e) {
@@ -161,6 +172,41 @@ public class JSONObject extends AbstractJSON {
 	public boolean isNull(String name) throws JSONException {
 		return JSON.isNull(get(name));
 	}
+
+	public String build() {
+		int l = size();
+		if (l == 0)
+			return "{}";
+		String s = "{";
+		java.util.Enumeration elements = table.keys();
+		while (true) {
+			String k = elements.nextElement().toString();
+			s += "\"" + k + "\":";
+			Object v = null;
+			try {
+				v = table.get(k);
+				if(v instanceof String) {
+					v = JSON.parseJSON((String) v);
+				}
+			} catch (JSONException e) {
+			}
+			if (v instanceof JSONObject) {
+				s += ((JSONObject) v).build();
+			} else if (v instanceof JSONArray) {
+				s += "[]";
+			} else if (v instanceof String) {
+				s += "\"" + JSON.escape_utf8((String) v) + "\"";
+			} else s += v.toString();
+			if(!elements.hasMoreElements()) {
+				return s + "}";
+			}
+			s += ",";
+		}
+	}
+	
+	public void put(String name, Object obj) {
+		table.put(name, JSON.getJSON(obj));
+	}
 	
 	public void clear() {
 		table.clear();
@@ -168,79 +214,6 @@ public class JSONObject extends AbstractJSON {
 	
 	public int size() {
 		return table.size();
-	}
-	
-	public String toString() {
-		if(JSON.build_functions) return build();
-		else return "JSONObject " + table.toString();
-	}
-	
-	public String build() {
-		if(!JSON.build_functions) return "";
-		else {
-			if (size() == 0)
-				return "{}";
-			String s = "{";
-			Enumeration elements = table.keys();
-			int i = 0;
-			while(elements.hasMoreElements()) {
-				String k = elements.nextElement().toString();
-				s += "\"" + k + "\":";
-				Object v = null;
-				try {
-					v = get(k);
-				} catch (JSONException e) {
-				}
-				if (v instanceof JSONObject) {
-					s += ((JSONObject) v).build();
-				} else if (v instanceof JSONArray) {
-					s += ((JSONArray) v).build();
-				} else if (v instanceof String) {
-					s += "\"" + JSON.escape_utf8(v.toString()) + "\"";
-				} else s += v;
-				i++;
-				if (i < size()) s += ",";
-			}
-			s += "}";
-			return s;
-		}
-	}
-	
-	protected String format(int l) {
-		if(!JSON.build_functions) return "";
-		else {
-			if (size() == 0)
-				return "{}";
-			String t = "";
-			String s = "";
-			for (int i = 0; i < l; i++) {
-				t += JSON.format_space;
-			}
-			String t2 = t + JSON.format_space;
-			s += "{\n";
-			s += t2;
-			Enumeration elements = table.keys();
-			for (int i = 0; elements.hasMoreElements(); ) {
-				String k = elements.nextElement().toString();
-				s += "\"" + k + "\": ";
-				Object v = null;
-				try {
-					v = get(k);
-				} catch (JSONException e) {
-				}
-				if (v instanceof AbstractJSON) {
-					s += ((AbstractJSON) v).format(l + 1);
-				} else if (v instanceof String) {
-					s += "\"" + JSON.escape_utf8(v.toString()) + "\"";
-				} else s += v;
-				i++;
-				if(i < size()) s += ",\n" + t2;
-			}
-			if (l > 0) {
-				s += "\n" + t + "}";
-			} else s += "\n}";
-			return s;
-		}
 	}
 
 	public Enumeration keys() {

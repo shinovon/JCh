@@ -1,7 +1,7 @@
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Vector;
 
 import javax.microedition.io.Connector;
@@ -15,7 +15,7 @@ public class Util {
 	
 	static {
 		try {
-			RecordStore r = RecordStore.openRecordStore("jch_cookie", false);
+			RecordStore r = RecordStore.openRecordStore("jchcookie", false);
 			byte[] b = r.getRecord(1);
 			r.closeRecordStore();
 			cookie = new String(b);
@@ -166,6 +166,10 @@ public class Util {
 				sbuf.append((char) ch);
 			} else if (ch == 32) {
 				sbuf.append("%20");
+			} else if (ch == '/') {
+				sbuf.append("%2F");
+			} else if (ch == ':') {
+				sbuf.append("%3A");
 			} else if ((ch == 45) || (ch == 95) || (ch == 46) || (ch == 33) || (ch == 126) || (ch == 42) || (ch == 39)
 					|| (ch == 40) || (ch == 41) || (ch == 58) || (ch == 47)) {
 				sbuf.append((char) ch);
@@ -180,7 +184,7 @@ public class Util {
 				sbuf.append(hex(0x80 | ch & 0x3F));
 			}
 		}
-		return Util.replace(Util.replace(sbuf.toString(), "/", "%2F"), ":", "%3A");
+		return sbuf.toString();
 	}
 
 	private static String hex(int ch) {
@@ -190,7 +194,7 @@ public class Util {
 
 	public static byte[] get(String url) throws IOException {
 		System.out.println("GET " + url);
-		HttpConnection hc = (HttpConnection) open(url);
+		HttpConnection hc = (HttpConnection) open(url, Connector.READ);
 
 		InputStream is = null;
 		ByteArrayOutputStream o = null;
@@ -199,11 +203,12 @@ public class Util {
 			if(cookie != null) {
 				hc.setRequestProperty("Cookie", cookie);
 			}
+			hc.setRequestProperty("User-Agent", "JCh/" + JChMIDlet.version() + " (" + platform + ")");
 			//hc.setRequestProperty("Accept-Encoding", "identity");
 			int r = hc.getResponseCode();
-			if(r >= 400) throw new IOException(r + " " + hc.getResponseMessage());
+			if(r >= 400 && r != 401) throw new IOException(r + " " + hc.getResponseMessage());
 			int redirects = 0;
-			while (r == 301 || r == 302) {
+			while (r == 301 || r == 302 || r == 303) {
 				String redir = hc.getHeaderField("Location");
 				if (redir.startsWith("/")) {
 					String tmp = url.substring(url.indexOf("//") + 2);
@@ -211,7 +216,7 @@ public class Util {
 					redir = host + redir;
 				}
 				hc.close();
-				hc = (HttpConnection) open(redir);
+				hc = (HttpConnection) open(redir, Connector.READ);
 				hc.setRequestMethod("GET");
 				if(cookie != null) {
 					hc.setRequestProperty("Cookie", cookie);
@@ -227,20 +232,17 @@ public class Util {
 						break;
 					String v = hc.getHeaderField(i);
 					if(k.equalsIgnoreCase("set-cookie")) {
-						if(v.indexOf("code_auth=") != -1) {
-							String[] f = Util.split(v, ';');
-							for(int j = 0; j < f.length; j++) {
-								if(f[i].indexOf("code_auth=") != -1) {
-									String s = f[i];
-									if(s.startsWith(" ")) s = s.substring(1);
-									cookie = s;
-									break;
-								}
-							}
-						}
+						System.out.println(k + ": " + v);
+						//if(v.indexOf("code_auth=") != -1) {
+						String[] f = Util.split(v, ';');
+						String s = f[0];
+						if(s.startsWith(" ")) s = s.substring(1);
+						addCookie(s);
+						//}
 					}
 				}
 			}
+			if(r == 401) throw new IOException(r + " " + hc.getResponseMessage());
 			is = hc.openInputStream();
 			o = new ByteArrayOutputStream();
 			byte[] buf = new byte[256];
@@ -262,12 +264,18 @@ public class Util {
 		}
 	}
 	
+	private static void addCookie(String s) {
+		System.out.println("addCookie " + s);
+		
+	}
+
 	public static byte[] post(String url, String content) throws IOException {
-		System.out.println("GET " + url);
-		HttpConnection hc = (HttpConnection) open(url);
+		System.out.println("POST " + url);
+		System.out.println(content);
+		HttpConnection hc = (HttpConnection) open(url, Connector.READ_WRITE);
 
 		InputStream is = null;
-		DataOutputStream os = null;
+		OutputStream os = null;
 		ByteArrayOutputStream o = null;
 		try {
 			hc.setRequestMethod("POST");
@@ -275,16 +283,42 @@ public class Util {
 				hc.setRequestProperty("Cookie", cookie);
 			}
 			//hc.setRequestProperty("Accept-Encoding", "identity");
-			os = hc.openDataOutputStream();
-			os.write(content.getBytes("UTF-8"));
+			byte[] b = content.getBytes("UTF-8");
+			int l = b.length;
+			hc.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			hc.setRequestProperty("Content-Length", "" + l);
+			os = hc.openOutputStream();
+			os.write(b);
+			os.close();
+			//os.flush();
 			int r = hc.getResponseCode();
-			if(r >= 300) throw new IOException(r + " " + hc.getResponseMessage());
+			if(r >= 400) throw new IOException(r + " " + hc.getResponseMessage());
+			int redirects = 0;
+			while (r == 301 || r == 302 || r == 303) {
+				String redir = hc.getHeaderField("Location");
+				if (redir.startsWith("/")) {
+					String tmp = url.substring(url.indexOf("//") + 2);
+					String host = url.substring(0, url.indexOf("//")) + "//" + tmp.substring(0, tmp.indexOf("/"));
+					redir = host + redir;
+				}
+				hc.close();
+				System.out.println("redirect: " + r + " " + redir);
+				hc = (HttpConnection) open(redir, Connector.READ);
+				hc.setRequestMethod("GET");
+				if(cookie != null) {
+					hc.setRequestProperty("Cookie", cookie);
+				}
+				if(redirects++ > 3) {
+					throw new IOException("Too many redirects!");
+				}
+			}
 			if (hc.getHeaderField("Set-Cookie") != null && !url.endsWith(".jpg")) {
 				for (int i = 0;; i++) {
 					String k = hc.getHeaderFieldKey(i);
 					if (k == null)
 						break;
 					String v = hc.getHeaderField(i);
+					System.out.println(k + ": " + v);
 					if(k.equalsIgnoreCase("set-cookie")) {
 						if(v.indexOf("code_auth=") != -1) {
 							String[] f = Util.split(v, ';');
@@ -330,11 +364,11 @@ public class Util {
 		}
 	}
 	
-	public static ContentConnection open(String url) throws IOException {
+	public static ContentConnection open(String url, int i) throws IOException {
 		try {
-			ContentConnection con = (ContentConnection) Connector.open(url, Connector.READ);
-			if (con instanceof HttpConnection)
-				((HttpConnection) con).setRequestProperty("User-Agent", "JCh/" + JChMIDlet.version() + " (" + platform + ")");
+			ContentConnection con = (ContentConnection) Connector.open(url, i);
+			//if (con instanceof HttpConnection)
+			//	((HttpConnection) con).setRequestProperty("User-Agent", "JCh/" + JChMIDlet.version() + " (" + platform + ")");
 			return con;
 		} catch (IOException e) {
 			e.printStackTrace();

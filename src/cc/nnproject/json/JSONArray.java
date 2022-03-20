@@ -150,71 +150,31 @@ public class JSONArray extends AbstractJSON {
 		return vector.size();
 	}
 	
-	public String toString() {
-		if(JSON.build_functions) return build();
-		else return "JSONArray " + vector.toString();
-	}
-	
 	public String build() {
-		if(!JSON.build_functions) return "";
-		else {
-			if (size() == 0)
-				return "[]";
-			String s = "[";
-			int i = 0;
-			while(i < size()) {
-				Object v = null;
-				try {
-					v = get(i);
-				} catch (JSONException e) {
-				}
-				if (v instanceof JSONObject) {
-					s += ((JSONObject) v).build();
-				} else if (v instanceof JSONArray) {
-					s += ((JSONArray) v).build();
-				} else if (v instanceof String) {
-					s += "\"" + JSON.escape_utf8(v.toString()) + "\"";
-				} else s += v;
-				i++;
-				if (i < size()) s += ",";
+		if (size() == 0)
+			return "[]";
+		String s = "[";
+		int i = 0;
+		while (i < size()) {
+			Object v = null;
+			try {
+				v = get(i);
+			} catch (JSONException e) {
 			}
-			s += "]";
-			return s;
+			if (v instanceof JSONObject) {
+				s += ((JSONObject) v).build();
+			} else if (v instanceof JSONArray) {
+				s += ((JSONArray) v).build();
+			} else if (v instanceof String) {
+				s += "\"" + JSON.escape_utf8(v.toString()) + "\"";
+			} else
+				s += v;
+			i++;
+			if (i < size())
+				s += ",";
 		}
-	}
-
-	protected String format(int l) {
-		if(!JSON.build_functions) return "";
-		else {
-			if (size() == 0)
-				return "[]";
-			String t = "";
-			String s = "";
-			for (int i = 0; i < l; i++) {
-				t += JSON.format_space;
-			}
-			String t2 = t + JSON.format_space;
-			s += "[\n";
-			s += t2;
-			for (int i = 0; i < size(); ) {
-				Object v = null;
-				try {
-					v = get(i);
-				} catch (JSONException e) {
-				}
-				if (v instanceof JSONObject) {
-					s += ((JSONObject) v).format(l + 1);
-				} else if (v instanceof String) {
-					s += "\"" + JSON.escape_utf8(v.toString()) + "\"";
-				} else s += v;
-				i++;
-				if(i < size()) s += ",\n" + t2;
-			}
-			if (l > 0) {
-				s += "\n" + t + "]";
-			} else s += "\n]";
-			return s;
-		}
+		s += "]";
+		return s;
 	}
 
 	public Enumeration elements() {
