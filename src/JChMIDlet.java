@@ -106,6 +106,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private Form settingsFrm;
 	private Form postingFrm;
 	private Form captchaFrm;
+	private Form searchFrm;
 	
 	private TextField boardField;
 	private TextField boardSearchField;
@@ -139,6 +140,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private Hashtable links = new Hashtable();
 	private Hashtable spoilers = new Hashtable();
 	private Hashtable comments = new Hashtable();
+	private Hashtable searchLinks = new Hashtable();
 	
 	private Thread lastThread;
 	
@@ -170,8 +172,6 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private int postsCount;
 	private int currentIndex;
 
-	private TextField captchaIdField;
-
 	private int postError;
 
 	// Settings
@@ -181,6 +181,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static String fileProxyUrl = DEFAULT_GLYPE_URL;
 	private static int maxPostsCount = 10;
 	private static boolean time2ch;
+	private static boolean filePreview = true;
 
 	
 	//private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
@@ -246,6 +247,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				fileProxyUrl = j.getString("fileproxy", fileProxyUrl);
 				time2ch = j.getBoolean("time2ch", time2ch);
 				maxPostsCount = j.getInt("maxposts", maxPostsCount);
+				filePreview = j.getBoolean("filepreview", filePreview);
 			} catch (Exception e) {
 			}
 		}
@@ -328,19 +330,6 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		}.start();
 	}
 
-	public static void getResult(String s) throws Exception {
-		System.out.println(s);
-		result = null;
-		String s2 = s;
-		result = Util.getString(prepareUrl(s));
-		if(result.toString().length() == 0) throw new IOException("Empty response: " + s2);
-		char c = ((String) result).charAt(0);
-		if(c == '{')
-			result = JSON.getObject((String) result);
-		else if(c == '[')
-			result = JSON.getArray((String) result);
-	}
-
 	public void commandAction(Command c, Displayable d) {
 		if(c == exitCmd)
 			destroyApp(false);
@@ -348,7 +337,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			if(d == boardFrm) {
 				display.setCurrent(mainFrm);
 			} else if(d == threadFrm) {
-				display.setCurrent(boardFrm);
+				display.setCurrent(searchFrm != null ? searchFrm : boardFrm);
 				if(lastThread != null && lastThread.isAlive()) {
 					lastThread.interrupt();
 					lastThread = null;
@@ -392,6 +381,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					j.put("fileproxy", fileProxyUrl);
 					j.put("time2ch", new Boolean(time2ch));
 					j.put("maxposts", new Integer(maxPostsCount));
+					j.put("filepreview", new Boolean(filePreview));
 					byte[] b = j.build().getBytes("UTF-8");
 					
 					r.addRecord(b, 0, b.length);
@@ -453,8 +443,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				settingsFrm.setItemStateListener(this);
 				setInstanceField = new TextField("Инстанс двача", instanceUrl, 100, TextField.URL);
 				settingsFrm.append(setInstanceField);
-				setChoice = new ChoiceGroup("", Choice.MULTIPLE, new String[] { "Прямое подключение", "Дата поста с сайта" }, null);
-				setChoice.setSelectedFlags(new boolean[] { direct2ch, time2ch });
+				setChoice = new ChoiceGroup("", Choice.MULTIPLE, new String[] { "Прямое подключение", "Дата поста с сайта", "Отображение превью" }, null);
+				setChoice.setSelectedFlags(new boolean[] { direct2ch, time2ch, filePreview });
 				settingsFrm.append(setChoice);
 				setApiProxyField = new TextField("Прокси для API", apiProxyUrl, 100, direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 				settingsFrm.append(setApiProxyField);
@@ -515,6 +505,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				e.printStackTrace();
 				captchaFrm.append(e.toString());
 			}
+		} else if(d == searchFrm) {
+			display.setCurrent(boardFrm);
+			searchFrm = null;
 		}
 	}
 
@@ -580,6 +573,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		if(item == setChoice) {
 			direct2ch = setChoice.isSelected(0);
 			time2ch = setChoice.isSelected(1);
+			filePreview = setChoice.isSelected(2);
 			int c = direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL;
 			setApiProxyField.setConstraints(c);
 			setFileProxyField.setConstraints(c);
@@ -593,9 +587,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		System.out.println(2);
 		postingFrm.addCommand(postCmd);
 		postingFrm.setCommandListener(this);
-		postSubjectField = new TextField("", "", 200, TextField.ANY);
+		postSubjectField = new TextField("Тема", "", 200, TextField.ANY);
 		postingFrm.append(postSubjectField);
-		postTextField = new TextField("Текст", "", 1000, TextField.ANY);
+		postTextField = new TextField("Комментарий", "", 1000, TextField.ANY);
 		postTextField.setLayout(Item.LAYOUT_VEXPAND | Item.LAYOUT_EXPAND );
 		postingFrm.append(postTextField);
 		postTextBtn = new StringItem("", "", StringItem.BUTTON);
@@ -639,7 +633,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			String path = (String) files.get(item);
 			if(path != null) {
 				try {
-					if(platformRequest(prepareUrl(path, fileProxyUrl))) {
+					if(platformRequest(prepareUrl(path, fileProxyUrl, instanceUrl))) {
 						//notifyDestroyed();
 					}
 				} catch (Exception e) {
@@ -648,6 +642,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			}
 		} else if(c == postLinkItemCmd) {
 			String path = (String) links.get(item);
+			if(path == null) {
+				path = (String) searchLinks.get(item);
+			}
 			System.out.println(path);
 			if(path != null) {
 				if(path.startsWith("/") || path.startsWith("https://2ch.hk/") || path.startsWith("https://2ch.life/") || path.startsWith("https://" + instanceUrl + "/")) {
@@ -681,7 +678,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						}
 					} else {
 						try {
-							if(platformRequest(prepareUrl(path, direct2ch ? null : fileProxyUrl))) {
+							if(platformRequest(prepareUrl(path, direct2ch ? null : fileProxyUrl, instanceUrl))) {
 								//notifyDestroyed();
 							}
 						} catch (Exception e) {
@@ -699,8 +696,39 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				}
 			}
 		} else if(c == boardSearchItemCmd) {
-			//String q = ((TextField)item).getString();
-		} else if(c == postSpoilerItemCmd) {
+			final String q = ((TextField)item).getString();
+			searchLinks.clear();
+			searchFrm = new Form("Jch - Результаты поиска");
+			searchFrm.addCommand(backCmd);
+			searchFrm.setCommandListener(this);
+			display(searchFrm);
+			lastThread = new Thread() {
+				public void run() {
+					try {
+						getResult("makaba/makaba.fcgi?json=1&task=search&board=" + currentBoard + "&find=" + Util.encodeUrl(q), apiProxyUrl, "2ch.life");
+						if (!(result instanceof JSONObject))
+							throw new RuntimeException("Result not object: " + result);
+						JSONObject j = (JSONObject) result;
+						JSONArray posts = j.getArray("posts");
+						if (posts.size() == 0) {
+							StringItem s = new StringItem("", "Ничего не найдено");
+							s.setLayout(Item.LAYOUT_CENTER);
+							searchFrm.append(s);
+							return;
+						}
+						parsePosts(searchFrm, posts, 0, true);
+					} catch (Exception e) {
+						e.printStackTrace();
+						removeLoadingLabel(threadFrm);
+						addLoadingLabel(threadFrm, "Ошибка!");
+						StringItem s = new StringItem("", e.toString());
+						s.setLayout(Item.LAYOUT_LEFT);
+						searchFrm.append(s);
+					}
+				}
+			};
+			lastThread.start();
+		} else if (c == postSpoilerItemCmd) {
 			String t = (String) spoilers.get(item);
 			if(t != null) {
 				StringItem s = ((StringItem) item);
@@ -713,7 +741,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			clearThreadData();
 			threadFrm.deleteAll();
 			currentIndex += maxPostsCount;
-			parsePosts(cachedPosts, maxPostsCount);
+			parsePosts(threadFrm, cachedPosts, maxPostsCount, false);
 		} else if(c == boardsItemCmd) {
 			if(boardsFrm != null) {
 				display(boardsFrm);
@@ -809,7 +837,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						}
 						if(threadFrm != null) removeLoadingLabel(threadFrm);
 						else return;
-						parsePosts(posts, 0);
+						parsePosts(threadFrm, posts, 0, false);
 					} catch (InterruptedException e) {
 					} catch (Exception e) {
 						e.printStackTrace();
@@ -829,17 +857,17 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		
 	}
 
-	private void parsePosts(JSONArray posts, int offset) {
+	private void parsePosts(Form f, JSONArray posts, int offset, boolean search) {
 		int l = posts.size();
 		if(offset != 0) {
 			StringItem s = new StringItem(null, "");
-			threadFrm.append(s);
+			f.append(s);
 			StringItem btn = new StringItem(null, "Предыдущие посты");
 			btn.setLayout(Item.LAYOUT_CENTER);
 			btn.addCommand(prevPostsItemCmd);
 			btn.setDefaultCommand(prevPostsItemCmd);
 			btn.setItemCommandListener(JChMIDlet.this);
-			threadFrm.append(btn);
+			f.append(btn);
 			if(Util.platform.indexOf("S60") > -1 && Util.platform.indexOf("=3.2") == -1)
 			try {
 				display.setCurrentItem(s);
@@ -852,37 +880,56 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			} catch (InterruptedException e) {
 				return;
 			}
-			if(i + currentIndex + offset >= l || i + currentIndex + offset >= postsCount) return;
-			if(i >= maxPostsCount) {
-				if(offset == 0) {
-					currentIndex = 0;
-					cachedPosts = posts;
+			if(!search) {
+				if(i + currentIndex + offset >= l || i + currentIndex + offset >= postsCount) return;
+				if(i >= maxPostsCount) {
+					if(offset == 0) {
+						currentIndex = 0;
+						cachedPosts = posts;
+					}
+					StringItem btn = new StringItem(null, "Следующие посты");
+					btn.setLayout(Item.LAYOUT_CENTER);
+					btn.addCommand(nextPostsItemCmd);
+					btn.setDefaultCommand(nextPostsItemCmd);
+					btn.setItemCommandListener(JChMIDlet.this);
+					f.append(btn);
+					break;
 				}
-				StringItem btn = new StringItem(null, "Следующие посты");
-				btn.setLayout(Item.LAYOUT_CENTER);
-				btn.addCommand(nextPostsItemCmd);
-				btn.setDefaultCommand(nextPostsItemCmd);
-				btn.setItemCommandListener(JChMIDlet.this);
-				threadFrm.append(btn);
-				break;
 			}
 			JSONObject post = posts.getObject(i + currentIndex);
 			JSONArray files = post.getNullableArray("files");
 			//System.out.println(post);
 			String num = post.getString("num", "");
-			System.out.println(post.toString());
-			StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + "\n" + (time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))) + " #" + num);
-			title.setFont(smallBoldFont);
-			title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
-			comments.put(num, title);
-			threadFrm.append(title);
+			//System.out.println(post.toString());
+			if(search) {
+				StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + "\n" + (time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))));
+				title.setFont(smallBoldFont);
+				title.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
+				f.append(title);
+
+				StringItem snum = new StringItem(null, " #" + num);
+				snum.setFont(smallBoldFont);
+				snum.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_LEFT);
+				f.append(snum);
+				snum.addCommand(postLinkItemCmd);
+				snum.setDefaultCommand(postLinkItemCmd);
+				snum.setItemCommandListener(this);
+				searchLinks.put(snum, "/" + currentBoard + "/res/" + post.getString("parent", "") + ".html#" + num);
+			} else {
+				StringItem title = new StringItem(null, Util.htmlText(post.getString("name", "")) + "\n" + (time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))) + " #" + num);
+				title.setFont(smallBoldFont);
+				title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
+				
+				comments.put(num, title);
+				f.append(title);
+			}
 			/*
 			StringItem text = new StringItem(null, Util.text(post.getString("comment", "")));
 			text.setFont(Font.getFont(0, Font.STYLE_PLAIN, Font.SIZE_SMALL));
 			text.setLayout(Item.LAYOUT_NEWLINE_AFTER);
 			threadFrm.append(text);
 			*/
-			parseHtmlText(threadFrm, post.getString("comment", ""));
+			parseHtmlText(f, post.getString("comment", ""));
 			
 			if(files != null) {
 				int fl = files.size();
@@ -895,12 +942,12 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					fitem.setDefaultCommand(fileImgItemOpenCmd);
 					fitem.setItemCommandListener(JChMIDlet.this);
 					addFile(fitem, file.getString("path", null), file.getString("thumbnail", null));
-					threadFrm.append(fitem);
+					f.append(fitem);
 				}
 			}
 			Spacer s = new Spacer(2, 20);
 			s.setLayout(Item.LAYOUT_2);
-			threadFrm.append(s);
+			f.append(s);
 		}
 	}
 
@@ -1168,9 +1215,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 
 	protected void addFile(ImageItem img, String path, String thumb) {
 		files.put(img, path);
-		thumbsToLoad.addElement(new Object[] { thumb, img });
-		synchronized(thumbLoadLock) {
-			thumbLoadLock.notifyAll();
+		if(filePreview) {
+			thumbsToLoad.addElement(new Object[] { thumb, img });
+			synchronized(thumbLoadLock) {
+				thumbLoadLock.notifyAll();
+			}
 		}
 	}
 
@@ -1275,23 +1324,36 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 	
 	public static Image getImg(String url, String proxy) throws IOException {
-		url = prepareUrl(url, proxy);
+		url = prepareUrl(url, proxy, instanceUrl);
 		byte[] b = Util.get(url);
 		return Image.createImage(b, 0, b.length);
 	}
 
-	public static String prepareUrl(String url) {
-		return prepareUrl(url, direct2ch ? null : apiProxyUrl);
+	public static void getResult(String s, String proxy, String inst) throws Exception {
+		System.out.println(s);
+		result = null;
+		String s2 = s;
+		result = Util.getString(prepareUrl(s, proxy, inst));
+		if(result.toString().length() == 0) throw new IOException("Empty response: " + s2);
+		char c = ((String) result).charAt(0);
+		if(c == '{')
+			result = JSON.getObject((String) result);
+		else if(c == '[')
+			result = JSON.getArray((String) result);
 	}
 
-	public static String prepareUrl(String url, String proxy) {
+	public static void getResult(String s) throws Exception {
+		getResult(s, direct2ch ? null : apiProxyUrl, instanceUrl);
+	}
+
+	public static String prepareUrl(String url, String proxy, String inst) {
 		if(url.startsWith("/")) url = url.substring(1);
 		if(url.endsWith("&") || url.endsWith("?"))
 			url = url.substring(0, url.length() - 1);
 		if(proxy != null && proxy.length() > 1) {
-			url = proxy + Util.encodeUrl("https://" + instanceUrl + "/" + url);
+			url = proxy + Util.encodeUrl("https://" + inst + "/" + url);
 		} else {
-			url = "https://" + instanceUrl + "/" +url;
+			url = "https://" + inst + "/" +url;
 		}
 		return url;
 	}
