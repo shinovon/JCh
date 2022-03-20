@@ -681,62 +681,6 @@ public class Node {
                 node.addAttribute("class", classname);
     }
 
-    /* --------------------- DEBUG -------------------------- */
-
-    private static final String[] nodeTypeString =
-    {
-        "RootNode",
-        "DocTypeTag",
-        "CommentTag",
-        "ProcInsTag",
-        "TextNode",
-        "StartTag",
-        "EndTag",
-        "StartEndTag",
-        "SectionTag",
-        "AspTag",
-        "PhpTag"
-    };
-
-    public String toString()
-    {
-        String s = "";
-        Node n = this;
-
-        while (n != null) {
-            s += "[Node type=";
-            s += nodeTypeString[n.type];
-            s += ",element=";
-            if (n.element != null)
-                s += n.element;
-            else
-                s += "null";
-            if (n.type == TextNode ||
-                n.type == CommentTag ||
-                n.type == ProcInsTag) {
-                s += ",text=";
-                if (n.textarray != null && n.start <= n.end) {
-                    s += "\"";
-                    s += Lexer.getString(n.textarray, n.start, n.end - n.start);
-                    s += "\"";
-                } else {
-                    s += "null";
-                }
-            }
-            s += ",content=";
-            if (n.content != null)
-                s += n.content.toString();
-            else
-                s += "null";
-            s += "]";
-            if (n.next != null)
-                s += ",";
-            n = n.next;
-        }
-        return s;
-    }
-    /* --------------------- END DEBUG ---------------------- */
-
 
     /* --------------------- DOM ---------------------------- */
 
