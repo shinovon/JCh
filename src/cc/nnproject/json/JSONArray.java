@@ -178,6 +178,17 @@ public class JSONArray extends AbstractJSON {
 	}
 
 	public Enumeration elements() {
-		return vector.elements();
+		return new Enumeration() {
+			int i = 0;
+			public boolean hasMoreElements() {
+				return i < vector.size();
+			}
+			public Object nextElement() {
+				Object o = get(i++);
+				if(o instanceof String)
+					o = JSON.parseJSON((String) o);
+				return o;
+			}
+		};
 	}
 }
