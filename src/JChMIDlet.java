@@ -780,6 +780,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		}
 		System.out.println(id);
 		currentThread = id;
+		postsCount = -1;
 		Thread t = lastThread = new Thread() {
 			public void run() {
 				try {
@@ -800,8 +801,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 									getResult(bd + "/arch/res/" + id + ".json");
 								} else throw e;
 							}
-							if(result == null || !(result instanceof JSONArray))
-								return;
+							if(result == null || !(result instanceof JSONArray)) {
+								throw new RuntimeException("Result not array: " + result);
+							}
 							posts = (JSONArray) result;
 						} else {
 							try {
@@ -881,7 +883,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				return;
 			}
 			if(!search) {
-				if(i + currentIndex + offset >= l || i + currentIndex + offset >= postsCount) return;
+				if(i + currentIndex + offset >= l || (postsCount != -1 ? i + currentIndex + offset >= postsCount : false)) return;
 				if(i >= maxPostsCount) {
 					if(offset == 0) {
 						currentIndex = 0;
