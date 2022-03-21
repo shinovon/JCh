@@ -51,9 +51,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			+ "org.w3c.tidy<br>"
 			+ "cc.nnproject.json<br><br>"
 			+ "<b>Другие программы на Java</b><br>"
-			+ "<a href=\"http://nnp.nnchan.ru\">JTube (nnproject)</a><br>"
-			+ "<a href=\"http://nnp.nnchan.ru\">Bing Translate (nnproject)</a><br>"
-			+ "<a href=\"http://vk4me.curoviyx.ru\">VK4ME (curoviyxru)</a><br><br>"
+			+ "<a href=\"http://nnp.nnchan.ru\">JTube</a><br>"
+			+ "<a href=\"http://nnp.nnchan.ru\">Bing Translate</a><br><br>"
+			/*+ "<a href=\"http://vk4me.curoviyx.ru\">VK4ME (curoviyxru)</a><br><br>"*/
 			+ "<b>Лицензии</b><br>"
 			+ "(c) 1998-2000 (W3C) MIT, INRIA, Keio University<br>"
 			+ "See Tidy.java for the copyright notice.<br>"
@@ -431,6 +431,9 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				} else {
 					display.setCurrent(postingFrm);
 				}
+			} else if(d == searchFrm) {
+				display.setCurrent(boardFrm);
+				searchFrm = null;
 			}
 
 			System.gc();
@@ -562,9 +565,6 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				e.printStackTrace();
 				captchaFrm.append(e.toString());
 			}
-		} else if(d == searchFrm) {
-			display.setCurrent(boardFrm);
-			searchFrm = null;
 		}
 	}
 
@@ -764,6 +764,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			lastThread = new Thread() {
 				public void run() {
 					try {
+						postsCount = -1;
 						getResult("makaba/makaba.fcgi?json=1&task=search&board=" + currentBoard + "&find=" + Util.encodeUrl(q), apiProxyUrl, "2ch.life");
 						if (!(result instanceof JSONObject))
 							throw new RuntimeException("Result not object: " + result);
@@ -776,8 +777,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							searchFrm.append(s);
 							return;
 						}
-						System.gc();
 						parsePosts(searchFrm, posts, 0, true);
+						System.gc();
 					} catch (Exception e) {
 						e.printStackTrace();
 						removeLoadingLabel(threadFrm);
@@ -964,7 +965,10 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			} catch (InterruptedException e) {
 				return;
 			}
-			if(i + currentIndex + offset >= l || (postsCount != -1 ? i + currentIndex + offset >= postsCount : false)) return;
+			if(i + currentIndex + offset >= l || (postsCount > 0 ? i + currentIndex + offset >= postsCount : false)) {
+				System.out.println("limit: " + (i + currentIndex) + " " + postsCount);
+				return;
+			}
 			if(i >= maxPostsCount) {
 				if(offset == 0) {
 					currentIndex = 0;
