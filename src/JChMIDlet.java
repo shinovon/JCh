@@ -50,10 +50,10 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			+ "org.w3c.dom<br>"
 			+ "org.w3c.tidy<br>"
 			+ "cc.nnproject.json<br><br>"
-			+ "<b>Другие программы на Java</b><br>"
+			/*+ "<b>Другие программы на Java</b><br>"
 			+ "<a href=\"http://nnp.nnchan.ru\">JTube</a><br>"
 			+ "<a href=\"http://nnp.nnchan.ru\">Bing Translate</a><br><br>"
-			/*+ "<a href=\"http://vk4me.curoviyx.ru\">VK4ME (curoviyxru)</a><br><br>"*/
+			+ "<a href=\"http://vk4me.curoviyx.ru\">VK4ME (curoviyxru)</a><br><br>"
 			+ "<b>Лицензии</b><br>"
 			+ "(c) 1998-2000 (W3C) MIT, INRIA, Keio University<br>"
 			+ "See Tidy.java for the copyright notice.<br>"
@@ -62,7 +62,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			+ "Copyright (c) 1998-2000 World Wide Web Consortium (Massachusetts<br>"
 			+ "Institute of Technology, Institut National de Recherche en<br>"
 			+ "Informatique et en Automatique, Keio University). All Rights<br>"
-			+ "Reserved.";
+			+ "Reserved."*/;
 	
 	private static final String CONFIG_RECORD_NAME = "jchconfig";
 	private static final String DEFAULT_INSTANCE_URL = "2ch.hk";
@@ -179,6 +179,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private JSONArray cachedPosts;
 	private int postsCount;
 	private int currentIndex;
+
+	private TextField searchField;
 
 	// Settings
 	private static boolean direct2ch;
@@ -472,14 +474,14 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				setChoice = new ChoiceGroup("", Choice.MULTIPLE, new String[] { "Прямое подключение", "Открывать файлы напрямую", "Дата поста с сайта", "Отображение превью" }, null);
 				setChoice.setSelectedFlags(new boolean[] { direct2ch, directFile, time2ch, filePreview });
 				settingsFrm.append(setChoice);
+				setMaxPostsGauge = new Gauge("Кол-во постов на странице", true, 30, maxPostsCount);
+				settingsFrm.append(setMaxPostsGauge);
 				setApiProxyField = new TextField("Прокси для API", apiProxyUrl, 100, direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 				settingsFrm.append(setApiProxyField);
 				setPreviewProxyField = new TextField("Прокси для превью", previewProxyUrl, 100, direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 				settingsFrm.append(setPreviewProxyField);
 				setFileProxyField = new TextField("Прокси для открытия файлов", fileProxyUrl, 100, directFile ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 				settingsFrm.append(setFileProxyField);
-				setMaxPostsGauge = new Gauge("Кол-во постов на странице", true, 30, maxPostsCount);
-				settingsFrm.append(setMaxPostsGauge);
 			}
 			display(settingsFrm);
 		} else if(c == postCmd) {
@@ -760,6 +762,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			searchFrm = new Form("Jch - Результаты поиска");
 			searchFrm.addCommand(backCmd);
 			searchFrm.setCommandListener(this);
+			if(boardSearchField != null) {
+				searchFrm.append(searchField = new TextField("Поиск", boardSearchField.getString(), 100, TextField.ANY));
+				searchField.addCommand(boardSearchItemCmd);
+				searchField.setItemCommandListener(this);
+			}
 			display(searchFrm);
 			lastThread = new Thread() {
 				public void run() {
