@@ -375,8 +375,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				}
 			} else if(d == settingsFrm) {
 				direct2ch = setChoice.isSelected(0);
-				directFile = setChoice.isSelected(2);
-				time2ch = setChoice.isSelected(3);
+				directFile = setChoice.isSelected(1);
+				time2ch = setChoice.isSelected(2);
 				filePreview = setChoice.isSelected(3);
 				instanceUrl = setInstanceField.getString();
 				apiProxyUrl = setApiProxyField.getString();
