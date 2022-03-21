@@ -405,7 +405,7 @@ public class ParserImpl {
 
             if ((element.tag.model & Dict.CM_EMPTY) != 0)
                 return;
-
+/*
             if (element.tag == tt.tagA)
             {
                 if (element.attributes == null)
@@ -415,7 +415,7 @@ public class ParserImpl {
                     return;
                 }
             }
-
+*/
             /*
              ParseInline is used for some block level elements like H1 to H6
              For such elements we need to insert inline emphasis tags currently
@@ -461,7 +461,7 @@ public class ParserImpl {
                 /* <u>...<u>  map 2nd <u> to </u> if 1st is explicit */
                 /* otherwise emphasis nesting is probably unintentional */
                 /* big and small have cumulative effect to leave them alone */
-                if (node.type == Node.StartTag
+                /*if (node.type == Node.StartTag
                         && node.tag == element.tag
                         && lexer.isPushed(node)
                         && !node.implicit
@@ -478,7 +478,7 @@ public class ParserImpl {
                     }
 
                     Report.warning(lexer, element, node, Report.NESTED_EMPHASIS);
-                }
+                }*/
 
                 if (node.type == Node.TextNode)
                 {
@@ -501,7 +501,7 @@ public class ParserImpl {
                     continue;
 
                 /* deal with HTML tags */
-                if (node.tag == tt.tagHtml)
+                /*if (node.tag == tt.tagHtml)
                 {
                     if (node.type == Node.StartTag || node.type == Node.StartEndTag)
                     {
@@ -509,20 +509,20 @@ public class ParserImpl {
                         continue;
                     }
 
-                    /* otherwise infer end of inline element */
                     lexer.ungetToken();
                     if (!((mode & Lexer.Preformatted) != 0))
                         Node.trimSpaces(lexer, element);
                     Node.trimEmptyElement(lexer, element);
                     return;
-                }
+                }*/
 
                 if (node.tag == tt.tagBr && node.type == Node.EndTag)
                     node.type = Node.StartTag;
 
-                if (node.type == Node.EndTag)
-                {
+               // if (node.type == Node.EndTag)
+                //{
                     /* coerce </br> to <br> */
+                	/*
                     if (node.tag == tt.tagBr)
                         node.type = Node.StartTag;
                     else if ((node.tag.model & Dict.CM_INLINE) != 0
@@ -530,7 +530,7 @@ public class ParserImpl {
                                         && !((node.tag.model & Dict.CM_OBJECT) != 0)
                                         && (element.tag.model & Dict.CM_INLINE) != 0)
                     {
-                        /* allow any inline end tag to end current element */
+                       
                         lexer.popInline( element);
 
                         if (element.tag != tt.tagA)
@@ -551,10 +551,10 @@ public class ParserImpl {
                             return;
                         }
 
-                        /* if parent is <a> then discard unexpected inline end tag */
+                        
                         Report.warning(lexer, element, node, Report.DISCARDING_UNEXPECTED);
                         continue;
-                    }  /* special case </tr> etc. for stuff moved in front of table */
+                    }  
                     else if (lexer.exiled
                                 && node.tag.model != 0
                                 && (node.tag.model & Dict.CM_TABLE) != 0)
@@ -563,8 +563,8 @@ public class ParserImpl {
                         Node.trimSpaces(lexer, element);
                         Node.trimEmptyElement(lexer, element);
                         return;
-                    }
-                }
+                    }*/
+               // }
 
                 /* allow any header tag to end current header */
                 if ((node.tag.model & Dict.CM_HEADING) != 0 && (element.tag.model & Dict.CM_HEADING) != 0)
@@ -588,9 +588,9 @@ public class ParserImpl {
                    an <A> tag to ends any open <A> element
                    but <A href=...> is mapped to </A><A href=...>
                 */
+                /*
                 if (node.tag == tt.tagA && !node.implicit && lexer.isPushed(node))
                 {
-                 /* coerce <a> to </a> unless it has some attributes */
                     if (node.attributes == null)
                     {
                         node.type = Node.EndTag;
@@ -611,7 +611,7 @@ public class ParserImpl {
 
                 if ((element.tag.model & Dict.CM_HEADING) != 0)
                 {
-                }
+                }*/
 
 
                 /* 
@@ -691,8 +691,8 @@ public class ParserImpl {
                 /* parse inline element */
                 if (node.type == Node.StartTag || node.type == Node.StartEndTag)
                 {
-                    if (node.implicit)
-                        Report.warning(lexer, element, node, Report.INSERTING_TAG);
+                   // if (node.implicit)
+                     //   Report.warning(lexer, element, node, Report.INSERTING_TAG);
 
                     /* trim white space before <br> */
                     if (node.tag == tt.tagBr)

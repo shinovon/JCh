@@ -184,10 +184,7 @@ public class JSONArray extends AbstractJSON {
 				return i < vector.size();
 			}
 			public Object nextElement() {
-				Object o = get(i++);
-				if(o instanceof String)
-					o = JSON.parseJSON((String) o);
-				return o;
+				return get(i++);
 			}
 		};
 	}

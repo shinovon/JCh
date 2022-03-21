@@ -13,6 +13,7 @@ import javax.microedition.lcdui.Display;
 import javax.microedition.lcdui.Displayable;
 import javax.microedition.lcdui.Font;
 import javax.microedition.lcdui.Form;
+import javax.microedition.lcdui.Gauge;
 import javax.microedition.lcdui.Image;
 import javax.microedition.lcdui.ImageItem;
 import javax.microedition.lcdui.Item;
@@ -44,11 +45,15 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			+ "версия <ver><br><br>"
 			+ "Клиент <a href=\"https://2ch.hk\">2ch.hk</a> для Symbian/J2ME устройств<br><br>"
 			+ "<b>Разработал</b><br>"
-			+ "Shinovon (<a href=\"http://nnproject.cc\">nnproject.cc</a>)<br><br>"
+			+ "Shinovon (<a href=\"http://nnp.nnchan.ru\">nnproject.cc</a>)<br><br>"
 			+ "<b>Использованые библиотеки</b><br>"
 			+ "org.w3c.dom<br>"
 			+ "org.w3c.tidy<br>"
 			+ "cc.nnproject.json<br><br>"
+			+ "<b>Другие программы на Java</b><br>"
+			+ "<a href=\"http://nnp.nnchan.ru\">JTube (nnproject)</a><br>"
+			+ "<a href=\"http://nnp.nnchan.ru\">Bing Translate (nnproject)</a><br>"
+			+ "<a href=\"http://vk4me.curoviyx.ru\">VK4ME (curoviyxru)</a><br><br>"
 			+ "<b>Лицензии</b><br>"
 			+ "(c) 1998-2000 (W3C) MIT, INRIA, Keio University<br>"
 			+ "See Tidy.java for the copyright notice.<br>"
@@ -113,8 +118,10 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	
 	private TextField setInstanceField;
 	private TextField setApiProxyField;
+	private TextField setPreviewProxyField;
 	private TextField setFileProxyField;
 	private ChoiceGroup setChoice;
+	private Gauge setMaxPostsGauge;
 	
 	private TextField postSubjectField;
 	private TextField postTextField;
@@ -129,6 +136,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private String postBoard;
 	private int postingFileBtnIdx;
 	private String captchaId;
+	private int postError;
 
 	private boolean running = true;
 	private boolean started;
@@ -172,16 +180,16 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private int postsCount;
 	private int currentIndex;
 
-	private int postError;
-
 	// Settings
 	private static boolean direct2ch;
 	private static String instanceUrl = DEFAULT_INSTANCE_URL;
 	private static String apiProxyUrl = DEFAULT_GLYPE_URL;
+	private static String previewProxyUrl = DEFAULT_GLYPE_URL;
 	private static String fileProxyUrl = DEFAULT_GLYPE_URL;
 	private static int maxPostsCount = 10;
 	private static boolean time2ch;
 	private static boolean filePreview = true;
+	private static boolean directFile;
 
 	
 	//private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
@@ -244,10 +252,12 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				direct2ch = j.getBoolean("direct", direct2ch);
 				instanceUrl = j.getString("instance", instanceUrl);
 				apiProxyUrl = j.getString("apiproxy", apiProxyUrl);
+				previewProxyUrl = j.getString("previewproxy", previewProxyUrl);
 				fileProxyUrl = j.getString("fileproxy", fileProxyUrl);
 				time2ch = j.getBoolean("time2ch", time2ch);
 				maxPostsCount = j.getInt("maxposts", maxPostsCount);
 				filePreview = j.getBoolean("filepreview", filePreview);
+				directFile = j.getBoolean("directfile", directFile);
 			} catch (Exception e) {
 			}
 		}
@@ -353,6 +363,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				aboutFrm = null;
 			} else if(d == boardsFrm) {
 				display.setCurrent(mainFrm);
+				boardsFrm.deleteAll();
+				boardsFrm = null;
 			} else if(d == postingFrm) {
 				if(threadFrm != null && postThread != null && !postThread.equals("0")) {
 					display.setCurrent(threadFrm);
@@ -363,10 +375,14 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				}
 			} else if(d == settingsFrm) {
 				direct2ch = setChoice.isSelected(0);
-				time2ch = setChoice.isSelected(1);
+				directFile = setChoice.isSelected(2);
+				time2ch = setChoice.isSelected(3);
+				filePreview = setChoice.isSelected(3);
 				instanceUrl = setInstanceField.getString();
 				apiProxyUrl = setApiProxyField.getString();
+				previewProxyUrl = setPreviewProxyField.getString();
 				fileProxyUrl = setFileProxyField.getString();
+				maxPostsCount = setMaxPostsGauge.getValue();
 				display.setCurrent(mainFrm);
 				try {
 					RecordStore.deleteRecordStore(CONFIG_RECORD_NAME);
@@ -378,10 +394,12 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					j.put("direct", new Boolean(direct2ch));
 					j.put("instance", instanceUrl);
 					j.put("apiproxy", apiProxyUrl);
+					j.put("previewproxy", previewProxyUrl);
 					j.put("fileproxy", fileProxyUrl);
 					j.put("time2ch", new Boolean(time2ch));
 					j.put("maxposts", new Integer(maxPostsCount));
 					j.put("filepreview", new Boolean(filePreview));
+					j.put("directfile", new Boolean(directFile));
 					byte[] b = j.build().getBytes("UTF-8");
 					
 					r.addRecord(b, 0, b.length);
@@ -411,6 +429,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					}
 				}
 			}
+
+			System.gc();
 		} else if(c == aboutCmd) {
 			aboutFrm = new Form("Jch - О программе");
 			aboutFrm.addCommand(backCmd);
@@ -443,13 +463,17 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				settingsFrm.setItemStateListener(this);
 				setInstanceField = new TextField("Инстанс двача", instanceUrl, 100, TextField.URL);
 				settingsFrm.append(setInstanceField);
-				setChoice = new ChoiceGroup("", Choice.MULTIPLE, new String[] { "Прямое подключение", "Дата поста с сайта", "Отображение превью" }, null);
-				setChoice.setSelectedFlags(new boolean[] { direct2ch, time2ch, filePreview });
+				setChoice = new ChoiceGroup("", Choice.MULTIPLE, new String[] { "Прямое подключение", "Открывать файлы напрямую", "Дата поста с сайта", "Отображение превью" }, null);
+				setChoice.setSelectedFlags(new boolean[] { direct2ch, directFile, time2ch, filePreview });
 				settingsFrm.append(setChoice);
 				setApiProxyField = new TextField("Прокси для API", apiProxyUrl, 100, direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 				settingsFrm.append(setApiProxyField);
-				setFileProxyField = new TextField("Прокси для файлов", fileProxyUrl, 100, direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
+				setPreviewProxyField = new TextField("Прокси для превью", previewProxyUrl, 100, direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
+				settingsFrm.append(setPreviewProxyField);
+				setFileProxyField = new TextField("Прокси для открытия файлов", fileProxyUrl, 100, directFile ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 				settingsFrm.append(setFileProxyField);
+				setMaxPostsGauge = new Gauge("Кол-во постов на странице", true, 30, maxPostsCount);
+				settingsFrm.append(setMaxPostsGauge);
 			}
 			display(settingsFrm);
 		} else if(c == postCmd) {
@@ -572,11 +596,13 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	public void itemStateChanged(Item item) {
 		if(item == setChoice) {
 			direct2ch = setChoice.isSelected(0);
-			time2ch = setChoice.isSelected(1);
-			filePreview = setChoice.isSelected(2);
+			directFile = setChoice.isSelected(1);
+			time2ch = setChoice.isSelected(2);
+			filePreview = setChoice.isSelected(3);
 			int c = direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL;
 			setApiProxyField.setConstraints(c);
-			setFileProxyField.setConstraints(c);
+			setPreviewProxyField.setConstraints(c);
+			setFileProxyField.setConstraints(directFile ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 		}
 	}
 	
@@ -633,7 +659,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			String path = (String) files.get(item);
 			if(path != null) {
 				try {
-					if(platformRequest(prepareUrl(path, fileProxyUrl, instanceUrl))) {
+					if(platformRequest(prepareUrl(path, directFile ? null : fileProxyUrl, instanceUrl))) {
 						//notifyDestroyed();
 					}
 				} catch (Exception e) {
@@ -678,7 +704,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						}
 					} else {
 						try {
-							if(platformRequest(prepareUrl(path, direct2ch ? null : fileProxyUrl, instanceUrl))) {
+							if(platformRequest(prepareUrl(path, directFile ? null : fileProxyUrl, instanceUrl))) {
 								//notifyDestroyed();
 							}
 						} catch (Exception e) {
@@ -710,12 +736,14 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							throw new RuntimeException("Result not object: " + result);
 						JSONObject j = (JSONObject) result;
 						JSONArray posts = j.getArray("posts");
+						result = j = null;
 						if (posts.size() == 0) {
 							StringItem s = new StringItem("", "Ничего не найдено");
 							s.setLayout(Item.LAYOUT_CENTER);
 							searchFrm.append(s);
 							return;
 						}
+						System.gc();
 						parsePosts(searchFrm, posts, 0, true);
 					} catch (Exception e) {
 						e.printStackTrace();
@@ -738,10 +766,31 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				//s.removeCommand(postSpoilerItemCmd);
 			}
 		} else if(c == nextPostsItemCmd) {
-			clearThreadData();
-			threadFrm.deleteAll();
-			currentIndex += maxPostsCount;
-			parsePosts(threadFrm, cachedPosts, maxPostsCount, false);
+			if(searchFrm != null) {
+				clearThreadData();
+				searchFrm.deleteAll();
+				currentIndex += maxPostsCount;
+				parsePosts(searchFrm, cachedPosts, maxPostsCount, true);
+			} else {
+				clearThreadData();
+				threadFrm.deleteAll();
+				currentIndex += maxPostsCount;
+				parsePosts(threadFrm, cachedPosts, maxPostsCount, false);
+			}
+		} else if(c == prevPostsItemCmd) {
+			if(searchFrm != null) {
+				clearThreadData();
+				searchFrm.deleteAll();
+				currentIndex -= maxPostsCount;
+				if(currentIndex < 0) currentIndex = 0;
+				parsePosts(searchFrm, cachedPosts, maxPostsCount, true);
+			} else {
+				clearThreadData();
+				threadFrm.deleteAll();
+				currentIndex -= maxPostsCount;
+				if(currentIndex < 0) currentIndex = 0;
+				parsePosts(threadFrm, cachedPosts, maxPostsCount, false);
+			}
 		} else if(c == boardsItemCmd) {
 			if(boardsFrm != null) {
 				display(boardsFrm);
@@ -882,21 +931,19 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			} catch (InterruptedException e) {
 				return;
 			}
-			if(!search) {
-				if(i + currentIndex + offset >= l || (postsCount != -1 ? i + currentIndex + offset >= postsCount : false)) return;
-				if(i >= maxPostsCount) {
-					if(offset == 0) {
-						currentIndex = 0;
-						cachedPosts = posts;
-					}
-					StringItem btn = new StringItem(null, "Следующие посты");
-					btn.setLayout(Item.LAYOUT_CENTER);
-					btn.addCommand(nextPostsItemCmd);
-					btn.setDefaultCommand(nextPostsItemCmd);
-					btn.setItemCommandListener(JChMIDlet.this);
-					f.append(btn);
-					break;
+			if(i + currentIndex + offset >= l || (postsCount != -1 ? i + currentIndex + offset >= postsCount : false)) return;
+			if(i >= maxPostsCount) {
+				if(offset == 0) {
+					currentIndex = 0;
+					cachedPosts = posts;
 				}
+				StringItem btn = new StringItem(null, "Следующие посты");
+				btn.setLayout(Item.LAYOUT_CENTER);
+				btn.addCommand(nextPostsItemCmd);
+				btn.setDefaultCommand(nextPostsItemCmd);
+				btn.setItemCommandListener(JChMIDlet.this);
+				f.append(btn);
+				break;
 			}
 			JSONObject post = posts.getObject(i + currentIndex);
 			JSONArray files = post.getNullableArray("files");
@@ -1322,7 +1369,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	}
 
 	public static Image getImg(String url) throws IOException {
-		return getImg(url, direct2ch ? null : fileProxyUrl);
+		return getImg(url, direct2ch ? null : previewProxyUrl);
 	}
 	
 	public static Image getImg(String url, String proxy) throws IOException {
