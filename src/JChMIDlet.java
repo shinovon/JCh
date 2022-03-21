@@ -409,7 +409,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			} else if(d == captchaFrm) {
 				if(postError == -5) {
 					captchaFrm.deleteAll();
-					postError = 0;
+					postError = 200;
 					try {
 						generateCaptcha();
 					} catch (Exception e) {
@@ -419,7 +419,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						s.setLayout(Item.LAYOUT_LEFT);
 						captchaFrm.append(s);
 					}
-				} else {
+				} else if(postError == 200 || postError == -6 || postError == -7 || (postError <= -1 && postError >= -4)) {
+					captchaFrm.deleteAll();
 					if(threadFrm != null && postThread != null && !postThread.equals("0")) {
 						display.setCurrent(threadFrm);
 					} else if(boardFrm != null && postBoard != null) {
@@ -427,6 +428,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					} else {
 						display.setCurrent(mainFrm);
 					}
+				} else {
+					display.setCurrent(postingFrm);
 				}
 			}
 
@@ -479,6 +482,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		} else if(c == postCmd) {
 			try {
 				captchaFrm = new Form("Jch - Ввод капчи");
+				captchaFrm.addCommand(backCmd);
 				display(captchaFrm);
 				generateCaptcha();
 			} catch (Exception e) {
@@ -491,9 +495,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				captchaFrm.setCommandListener(this);
 			}
 		} else if(c == captchaConfirmCmd) {
+			postError = 200;
 			captchaFrm.removeCommand(captchaConfirmCmd);
-			captchaFrm.addCommand(backCmd);
 			captchaFrm.deleteAll();
+			//captchaFrm.addCommand(backCmd);
+			captchaFrm.setTitle("Jch - Отправка...");
 			captchaFrm.append("Отправка...\n");
 			String cid = /*captchaIdField.getString()*/ captchaId;
 			String ckey = captchaField.getString();
@@ -508,7 +514,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 							+ "&2chcaptcha_id=" + cid
 							+ "&2chcaptcha_value=" + ckey
 							;
-			captchaFrm.append(content);
+			//captchaFrm.append(content);
 			try {
 				byte[] b = Util.post("http://nnp.nnchan.ru:80/2chpost.php", content);
 				String s = null;
@@ -518,12 +524,39 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					s = new String(b);
 				}
 				b = null;
+				captchaFrm.setTitle("Jch - Отправлено");
+				System.out.println(s);
 				JSONObject j = JSON.getObject(s);
 				int error = j.getInt("Error", 0);
+				String num = j.getString("Num", null);
+				String tar = j.getString("Target", null);
+				String reason = j.getString("Reason", null);
 				postError = error;
-				System.out.println(s);
 				captchaFrm.deleteAll();
-				captchaFrm.append(s);
+				if(error != 0) {
+					captchaFrm.append("Ошибка: " + error + "\nПричина: " + reason);
+				} else if(num != null) {
+					captchaFrm.append("Пост создан\nНомер: \n");
+					StringItem snum = new StringItem(null, " #" + num);
+					snum.setFont(smallBoldFont);
+					snum.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_LEFT);
+					snum.addCommand(postLinkItemCmd);
+					snum.setDefaultCommand(postLinkItemCmd);
+					snum.setItemCommandListener(this);
+					captchaFrm.append(snum);
+					links.put(snum, "/" + postBoard + "/res/" + postThread + ".html#" + num);
+				} else if(tar != null) {
+					captchaFrm.append("Тред создан\nНомер: \n");
+					StringItem snum = new StringItem(null, " #" + tar);
+					snum.setFont(smallBoldFont);
+					snum.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_LEFT);
+					snum.addCommand(postLinkItemCmd);
+					snum.setDefaultCommand(postLinkItemCmd);
+					snum.setItemCommandListener(this);
+					captchaFrm.append(snum);
+					links.put(snum, "/" + postBoard + "/res/" + tar + ".html");
+				}
+				//captchaFrm.append(s);
 			} catch (Exception e) {
 				captchaFrm.deleteAll();
 				e.printStackTrace();
