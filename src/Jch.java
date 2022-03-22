@@ -383,11 +383,17 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	public void commandAction(Command c, Displayable d) {
+		_commandAction(c, d);
+	}
+
+	private static void _commandAction(Command c, Displayable d) {
 		if(c == exitCmd)
 			midlet.destroyApp(false);
 		else if(c == backCmd) {
 			if(d == boardFrm) {
 				display.setCurrent(mainFrm);
+				boardFrm.deleteAll();
+				boardFrm = null;
 			} else if(d == threadFrm) {
 				display.setCurrent(searchFrm != null ? searchFrm : boardFrm != null ? boardFrm : mainFrm);
 				if(lastThread != null && lastThread.isAlive()) {
@@ -475,11 +481,14 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				}
 			} else if(d == searchFrm) {
 				display.setCurrent(boardFrm);
+				clearThreadData();
+				searchFrm.deleteAll();
 				searchFrm = null;
 			} else if(d == tempTextBox) {
 				display.setCurrent(mainFrm);
+				tempTextBox = null;
 			}
-
+	
 			System.gc();
 		} else if(c == aboutCmd) {
 			aboutFrm = new Form("Jch - О программе");
@@ -505,6 +514,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		} else if(c == textOkCmd) {
 			postTextField.setString(tempTextBox.getString());
 			display(postingFrm);
+			tempTextBox = null;
 		} else if(c == settingsCmd) {
 			if(settingsFrm == null) {
 				settingsFrm = new Form("Jch - Настройки");
@@ -613,6 +623,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			openThread(currentThread, currentBoard, null);
 		} else if(c == linkOkCmd) {
 			String s = tempTextBox.getString();
+			tempTextBox = null;
 			s = sub(s, "https:");
 			s = sub(s, "http:");
 			s = sub(s, "//");
@@ -768,6 +779,10 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	public void commandAction(Command c, Item item) {
+		_commandAction(c, item);
+	}
+
+	private static void _commandAction(Command c, Item item) {
 		if(c == boardFieldCmd) {
 			board(boardField.getString());
 		} else if(c == boardCmd || c.getLabel().startsWith("Треды")) {
@@ -927,9 +942,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			if (!(result instanceof JSONObject))
 				throw new RuntimeException("Result not object: " + result);
 			JSONObject j = (JSONObject) result;
-			JSONArray posts = j.getArray("posts");
+			JSONArray posts = j.getNullableArray("posts");
 			result = j = null;
-			if (posts.size() == 0) {
+			if (posts == null || posts.size() == 0) {
 				StringItem s = new StringItem("", "Ничего не найдено");
 				s.setLayout(Item.LAYOUT_CENTER);
 				searchFrm.append(s);
