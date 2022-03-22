@@ -1,7 +1,10 @@
-package cc.nnproject.json;
+package json;
+
 
 import java.util.Enumeration;
 import java.util.Hashtable;
+
+import Jch;
 
 public class JSONObject extends AbstractJSON {
 
@@ -19,23 +22,22 @@ public class JSONObject extends AbstractJSON {
 		return table.containsKey(name);
 	}
 	
-	public Object get(String name) throws JSONException {
+	public Object get(String name) throws Exception {
 		try {
 			if (has(name)) {
-				if (JSON.parse_members) {
-					return table.get(name);
-				} else {
+				//if (JSON.parse_members) {
+				//	return table.get(name);
+				//} else {
 					Object o = table.get(name);
 					if (o instanceof String)
-						table.put(name, o = JSON.parseJSON((String) o));
+						table.put(name, o = Jch.parseJSON((String) o));
 					return o;
-				}
+				//}
 			}
-		} catch (JSONException e) {
-			throw e;
 		} catch (Exception e) {
+			if(e.getMessage() != null && e.getMessage().startsWith("JSON:")) throw e;
 		}
-		throw new JSONException("No value for name: " + name);
+		throw new Exception("JSON: No value for name: " + name);
 	}
 	
 	public Object get(String name, Object def) {
@@ -51,7 +53,7 @@ public class JSONObject extends AbstractJSON {
 		return get(name, null);
 	}
 	
-	public String getString(String name) throws JSONException {
+	public String getString(String name) throws Exception {
 		return get(name).toString();
 	}
 	
@@ -71,11 +73,11 @@ public class JSONObject extends AbstractJSON {
 		return getString(name, null);
 	}
 	
-	public JSONObject getObject(String name) throws JSONException {
+	public JSONObject getObject(String name) throws Exception {
 		try {
 			return (JSONObject) get(name);
 		} catch (ClassCastException e) {
-			throw new JSONException("Not object: " + name);
+			throw new Exception("JSON: Not object: " + name);
 		}
 	}
 	
@@ -88,11 +90,11 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public JSONArray getArray(String name) throws JSONException {
+	public JSONArray getArray(String name) throws Exception {
 		try {
 			return (JSONArray) get(name);
 		} catch (ClassCastException e) {
-			throw new JSONException("Not array: " + name);
+			throw new Exception("JSON: Not array: " + name);
 		}
 	}
 	
@@ -105,11 +107,11 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public Double getNumber(String name) throws JSONException {
-		return JSON.getDouble(get(name));
+	public Double getNumber(String name) throws Exception {
+		return Jch.getDouble(get(name));
 	}
 	
-	public int getInt(String name) throws JSONException {
+	public int getInt(String name) throws Exception {
 		return getNumber(name).intValue();
 	}
 	
@@ -122,7 +124,7 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public long getLong(String name) throws JSONException {
+	public long getLong(String name) throws Exception {
 		return getNumber(name).longValue();
 	}
 
@@ -135,7 +137,7 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public double getDouble(String name) throws JSONException {
+	public double getDouble(String name) throws Exception {
 		return getNumber(name).doubleValue();
 	}
 
@@ -148,7 +150,7 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public boolean getBoolean(String name) throws JSONException {
+	public boolean getBoolean(String name) throws Exception {
 		Object o = get(name);
 		if(o instanceof Boolean) return ((Boolean) o).booleanValue();
 		if(o instanceof Integer) return ((Integer) o).intValue() > 0;
@@ -157,7 +159,7 @@ public class JSONObject extends AbstractJSON {
 			if(s.equals("1") || s.equals("true") || s.equals("TRUE")) return true;
 			else if(s.equals("0") || s.equals("false") || s.equals("FALSE") || s.equals("-1")) return false;
 		}
-		throw new JSONException("Not boolean: " + o);
+		throw new Exception("JSON: Not boolean: " + o);
 	}
 
 	public boolean getBoolean(String name, boolean def) {
@@ -169,8 +171,8 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public boolean isNull(String name) throws JSONException {
-		return JSON.isNull(get(name));
+	public boolean isNull(String name) throws Exception {
+		return Jch.isNull(get(name));
 	}
 
 	public String build() {
@@ -186,16 +188,16 @@ public class JSONObject extends AbstractJSON {
 			try {
 				v = table.get(k);
 				if(v instanceof String) {
-					v = JSON.parseJSON((String) v);
+					v = Jch.parseJSON((String) v);
 				}
-			} catch (JSONException e) {
+			} catch (Exception e) {
 			}
 			if (v instanceof JSONObject) {
 				s += ((JSONObject) v).build();
 			} else if (v instanceof JSONArray) {
 				s += "[]";
 			} else if (v instanceof String) {
-				s += "\"" + JSON.escape_utf8((String) v) + "\"";
+				s += "\"" + Jch.escape_utf8((String) v) + "\"";
 			} else s += v.toString();
 			if(!elements.hasMoreElements()) {
 				return s + "}";
@@ -204,8 +206,8 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public void put(String name, Object obj) {
-		table.put(name, JSON.getJSON(obj));
+	public void put(String name, Object obj) throws Exception {
+		table.put(name, Jch.getJSON(obj));
 	}
 	
 	public void clear() {

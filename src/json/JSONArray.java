@@ -1,7 +1,10 @@
-package cc.nnproject.json;
+package json;
+
 
 import java.util.Enumeration;
 import java.util.Vector;
+
+import Jch;
 
 public class JSONArray extends AbstractJSON {
 
@@ -15,19 +18,19 @@ public class JSONArray extends AbstractJSON {
 		this.vector = vector;
 	}
 	
-	public Object get(int index) throws JSONException {
+	public Object get(int index) throws Exception {
 		try {
-			if (JSON.parse_members)
-				return vector.elementAt(index);
-			else {
+			//if (JSON.parse_members)
+			//	return vector.elementAt(index);
+			//else {
 				Object o = vector.elementAt(index);
 				if (o instanceof String)
-					vector.setElementAt(o = JSON.parseJSON((String) o), index);
+					vector.setElementAt(o = Jch.parseJSON((String) o), index);
 				return o;
-			}
+			//}
 		} catch (Exception e) {
 		}
-		throw new JSONException("No value at " + index);
+		throw new Exception("JSON: No value at " + index);
 	}
 	
 	public Object get(int index, Object def) {
@@ -38,7 +41,7 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public String getString(int index) throws JSONException {
+	public String getString(int index) throws Exception {
 		return get(index).toString();
 	}
 	
@@ -50,11 +53,11 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public JSONObject getObject(int index) throws JSONException {
+	public JSONObject getObject(int index) throws Exception {
 		try {
 			return (JSONObject) get(index);
 		} catch (ClassCastException e) {
-			throw new JSONException("Not object at " + index);
+			throw new Exception("JSON: Not object at " + index);
 		}
 	}
 	
@@ -66,11 +69,11 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public JSONArray getArray(int index) throws JSONException {
+	public JSONArray getArray(int index) throws Exception {
 		try {
 			return (JSONArray) get(index);
 		} catch (ClassCastException e) {
-			throw new JSONException("Not array at " + index);
+			throw new Exception("JSON: Not array at " + index);
 		}
 	}
 	
@@ -82,11 +85,11 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public Double getNumber(int index) throws JSONException {
-		return JSON.getDouble(get(index));
+	public Double getNumber(int index) throws Exception {
+		return Jch.getDouble(get(index));
 	}
 	
-	public int getInt(int index) throws JSONException {
+	public int getInt(int index) throws Exception {
 		return getNumber(index).intValue();
 	}
 	
@@ -98,7 +101,7 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public long getLong(int index) throws JSONException {
+	public long getLong(int index) throws Exception {
 		return getNumber(index).longValue();
 	}
 
@@ -110,7 +113,7 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public double getDouble(int index) throws JSONException {
+	public double getDouble(int index) throws Exception {
 		return getNumber(index).doubleValue();
 	}
 
@@ -122,7 +125,7 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public boolean getBoolean(int index) throws JSONException {
+	public boolean getBoolean(int index) throws Exception {
 		Object o = get(index);
 		if(o instanceof Boolean) return ((Boolean) o).booleanValue();
 		if(o instanceof Integer) return ((Integer) o).intValue() > 0;
@@ -131,7 +134,7 @@ public class JSONArray extends AbstractJSON {
 			if(s.equals("1") || s.equals("true") || s.equals("TRUE")) return true;
 			else if(s.equals("0") || s.equals("false") || s.equals("FALSE") || s.equals("-1")) return false;
 		}
-		throw new JSONException("Not boolean: " + o + " (" + index + ")");
+		throw new Exception("JSON: Not boolean: " + o + " (" + index + ")");
 	}
 
 	public boolean getBoolean(int index, boolean def) {
@@ -149,33 +152,6 @@ public class JSONArray extends AbstractJSON {
 	public int size() {
 		return vector.size();
 	}
-	
-	public String build() {
-		if (size() == 0)
-			return "[]";
-		String s = "[";
-		int i = 0;
-		while (i < size()) {
-			Object v = null;
-			try {
-				v = get(i);
-			} catch (JSONException e) {
-			}
-			if (v instanceof JSONObject) {
-				s += ((JSONObject) v).build();
-			} else if (v instanceof JSONArray) {
-				s += ((JSONArray) v).build();
-			} else if (v instanceof String) {
-				s += "\"" + JSON.escape_utf8(v.toString()) + "\"";
-			} else
-				s += v;
-			i++;
-			if (i < size())
-				s += ",";
-		}
-		s += "]";
-		return s;
-	}
 
 	public Enumeration elements() {
 		return new Enumeration() {
@@ -184,7 +160,11 @@ public class JSONArray extends AbstractJSON {
 				return i < vector.size();
 			}
 			public Object nextElement() {
-				return get(i++);
+				try {
+					return get(i++);
+				} catch (Exception e) {
+					return null;
+				}
 			}
 		};
 	}
