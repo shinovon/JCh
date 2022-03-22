@@ -51,6 +51,7 @@ public class TagTable {
         tagBr = lookup("br");
         tagA = lookup("a");
         tagB = lookup("b");
+        tagP = lookup("p");
         tagI = lookup("i");
         tagStrong = lookup("strong");
         tagEm = lookup("em");
@@ -138,7 +139,7 @@ public class TagTable {
     new Dict( "body",       Dict.VERS_ALL,     (Dict.CM_HTML|Dict.CM_OPT|Dict.CM_OMITST), ParserImpl.getParseBody(), null ),
     //new Dict( "frameset",   Dict.VERS_FRAMES,  (Dict.CM_HTML|Dict.CM_FRAMES), ParserImpl.getParseFrameSet(), null ),
 
-    //new Dict( "p",          Dict.VERS_ALL,     (Dict.CM_BLOCK|Dict.CM_OPT), ParserImpl.getParseInline(), null ),
+    new Dict( "p",          Dict.VERS_ALL,     (Dict.CM_BLOCK|Dict.CM_OPT), ParserImpl.getParseInline(), null ),
     new Dict( "h1",         Dict.VERS_ALL,     (Dict.CM_BLOCK|Dict.CM_HEADING), ParserImpl.getParseInline(), null ),
     new Dict( "h2",         Dict.VERS_ALL,     (Dict.CM_BLOCK|Dict.CM_HEADING), ParserImpl.getParseInline(), null ),
     //new Dict( "h3",         Dict.VERS_ALL,     (Dict.CM_BLOCK|Dict.CM_HEADING), ParserImpl.getParseInline(), null ),
@@ -259,6 +260,7 @@ public class TagTable {
     public Dict tagA = null;
     public Dict tagB = null;
     public Dict tagI = null;
+    public Dict tagP = null;
     public Dict tagStrong = null;
     public Dict tagEm = null;
     public Dict tagSpan = null;

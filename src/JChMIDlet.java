@@ -82,6 +82,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static Command boardsItemCmd = new Command("Доски", Command.ITEM, 0);
 	private static Command postTextItemCmd = new Command("Ред. текст", Command.ITEM, 0);
 	private static Command postAddFileItemCmd = new Command("Добавить файл", Command.ITEM, 0);
+	private static Command openByLinkItemCmd = new Command("Открыть по ссылке", Command.ITEM, 0);
 	private static Command postThreadCmd = new Command("Запостить тред", Command.SCREEN, 0);
 	private static Command postCommentCmd = new Command("Ответить в тред", Command.SCREEN, 0);
 	private static Command aboutCmd = new Command("О программе", Command.SCREEN, 0);
@@ -91,6 +92,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 	private static Command postCmd = new Command("Запостить", Command.OK, 0);
 	private static Command captchaConfirmCmd = new Command("Подтвердить", Command.OK, 0);
 	private static Command textOkCmd = new Command("Ок", Command.OK, 0);
+	private static Command threadGotoStartCmd = new Command("Перейти к началу треда", Command.SCREEN, 0);
+	private static Command linkOkCmd = new Command("Ок", Command.OK, 0);
 	private static Display display;
 
 	private static Font largeBoldFont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_LARGE);
@@ -134,7 +137,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 
 	private String postThread;
 	private String postBoard;
-	private int postingFileBtnIdx;
+	//private int postingFileBtnIdx;
 	private String captchaId;
 	private int postError;
 
@@ -224,6 +227,12 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		btn2.setDefaultCommand(boardsItemCmd);
 		btn2.setItemCommandListener(this);
 		mainFrm.append(btn2);
+		StringItem btn3 = new StringItem("", "", StringItem.BUTTON);
+		btn3.setText("Открыть пост по ссылке");
+		btn3.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_BEFORE);
+		btn3.setDefaultCommand(openByLinkItemCmd);
+		btn3.setItemCommandListener(this);
+		mainFrm.append(btn3);
 	}
 
 	protected void destroyApp(boolean b) {
@@ -317,8 +326,11 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 					System.out.println(result);
 					if(!(result instanceof JSONObject))
 						return;
+					System.gc();
 					JSONArray boards = ((JSONObject)result).getArray("boards");
-					for(Enumeration en = boards.elements(); en.hasMoreElements();) {
+					Enumeration en = boards.elements();
+					boards = null;
+					while(en.hasMoreElements()) {
 						JSONObject board = (JSONObject) en.nextElement();
 						String id = board.getNullableString("id");
 						String name = board.getNullableString("name");
@@ -330,6 +342,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						boardsFrm.append(btn);
 						Thread.yield();
 					}
+					System.gc();
 				} catch (Exception e) {
 					e.printStackTrace();
 					removeLoadingLabel(boardsFrm);
@@ -349,7 +362,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			if(d == boardFrm) {
 				display.setCurrent(mainFrm);
 			} else if(d == threadFrm) {
-				display.setCurrent(searchFrm != null ? searchFrm : boardFrm);
+				display.setCurrent(searchFrm != null ? searchFrm : boardFrm != null ? boardFrm : mainFrm);
 				if(lastThread != null && lastThread.isAlive()) {
 					lastThread.interrupt();
 					lastThread = null;
@@ -436,6 +449,8 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			} else if(d == searchFrm) {
 				display.setCurrent(boardFrm);
 				searchFrm = null;
+			} else if(d == tempTextBox) {
+				display.setCurrent(mainFrm);
 			}
 
 			System.gc();
@@ -567,7 +582,56 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 				e.printStackTrace();
 				captchaFrm.append(e.toString());
 			}
+		} else if(c == threadGotoStartCmd) {
+			openThread(currentThread, currentBoard, null);
+		} else if(c == linkOkCmd) {
+			String s = tempTextBox.getString();
+			s = sub(s, "https:");
+			s = sub(s, "http:");
+			s = sub(s, "//");
+			s = sub(s, "2ch.");
+			s = sub(s, "hk");
+			s = sub(s, "life");
+			s = sub(s, "/");
+			if(s.indexOf("/") == -1) {
+				display(mainFrm);
+				return;
+			}
+			String brd = s.substring(0, s.indexOf('/'));
+			if(brd.length() == 0 || brd.equals("res")) {
+				display(mainFrm);
+				return;
+			}
+			System.out.println(brd);
+			s = s.substring(s.indexOf('/'));
+			System.out.println(s);
+			s = sub(s, "/res");
+			if(s.indexOf("/") == -1) {
+				display(mainFrm);
+				return;
+			}
+			s = sub(s, "/");
+			if(s.indexOf(".html") == -1) {
+				display(mainFrm);
+				return;
+			}
+			String tid = s.substring(0, s.indexOf(".html"));
+			s = s.substring(s.indexOf(".html") + 5);
+			String pid = null;
+			if(s.indexOf("#") != -1) {
+				pid = s.substring(s.indexOf('#') + 1);
+			}
+			System.out.println(tid);
+			System.out.println(pid);
+			openThread(tid, brd, pid);
 		}
+	}
+
+	private String sub(String s, String sub) {
+		if(s.startsWith(sub)) {
+			s = s.substring(sub.length());
+		}
+		return s;
 	}
 
 	private void generateCaptcha() throws Exception {
@@ -666,7 +730,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 		s.addCommand(postAddFileItemCmd);
 		s.setDefaultCommand(postAddFileItemCmd);
 		s.setItemCommandListener(this);
-		postingFileBtnIdx = postingFrm.append(s);
+		/*postingFileBtnIdx = */postingFrm.append(s);
 		display(postingFrm);
 	}
 
@@ -849,6 +913,13 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			tempTextBox.addCommand(textOkCmd);
 			tempTextBox.setCommandListener(this);
 			display(tempTextBox);
+		} else if(c == openByLinkItemCmd) {
+			tempTextBox = new TextBox("", "", 200, TextField.URL);
+			tempTextBox.setTitle("URL");
+			tempTextBox.addCommand(linkOkCmd);
+			tempTextBox.addCommand(backCmd);
+			tempTextBox.setCommandListener(this);
+			display(tempTextBox);
 		}
 	}
 	
@@ -895,6 +966,13 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 								throw new RuntimeException("Result not array: " + result);
 							}
 							posts = (JSONArray) result;
+
+							getResult("api/mobile/v2/info/"+bd+"/"+id);
+							if(result == null || !(result instanceof JSONObject)) {
+								throw new RuntimeException("Result not object: " + result);
+							}
+							j = (JSONObject) result;
+							j = j.getNullableObject("thread");
 						} else {
 							try {
 								getResult(bd + "/res/" + id + ".json");
@@ -917,21 +995,23 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 								return;
 							j = (JSONObject) result;
 							//System.out.println(j);
-
-							threadFrm.addCommand(postCommentCmd);
-							threadFrm.setTitle("/" + bd + "/ - " + Util.htmlText(j.getString("title", "")));
 							JSONArray th = j.getNullableArray("threads");
 							if(th == null)
 								return;
 							JSONObject t = th.getObject(0);
 							posts = t.getArray("posts");
-							postsCount = j.getInt("posts_count");
+						}
+						threadFrm.addCommand(postCommentCmd);
+						threadFrm.addCommand(threadGotoStartCmd);
+						if(j != null) {
+							threadFrm.setTitle("/" + bd + "/ - " + Util.htmlText(j.getString("title", "")));
+							postsCount = j.getInt("posts_count", j.getInt("posts", -1));
 						}
 						if(threadFrm != null) removeLoadingLabel(threadFrm);
 						else return;
 						parsePosts(threadFrm, posts, 0, false);
 					} catch (InterruptedException e) {
-					} catch (Exception e) {
+					} catch (Throwable e) {
 						e.printStackTrace();
 						if(threadFrm != null) {
 							removeLoadingLabel(threadFrm);
@@ -1230,13 +1310,19 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 			}
 			String v = n.getNodeValue();
 			System.out.println(k + " " + v);
-			if(k.equals("br")) {
+			if(k.equals("br") || k.equals("p")) { //TODO: <p> tag parsing
 				f.append("\n");
 			}
 			if(k.equals("#text")) {
 				boolean b = true;
 				int fstyle = Font.STYLE_PLAIN;
 				int fsize = Font.SIZE_SMALL;
+				int layout = 0;
+				/*if(v.startsWith("\r\n")) {
+					layout |= Item.LAYOUT_NEWLINE_BEFORE;
+					v = v.substring(4);
+				}*/
+				v = Util.replace(v, "\\r\\n", "\n");
 				StringItem st = new StringItem("", v);
 				st.setLayout(Item.LAYOUT_2);
 				if(n.getParentNode() != null) {
@@ -1296,6 +1382,7 @@ public class JChMIDlet extends MIDlet implements CommandListener, ItemCommandLis
 						f.append(s2);
 					}
 				}
+				st.setLayout(Item.LAYOUT_2 | layout);
 				Font font = getFont(0, fstyle, fsize);
 				st.setFont(font);
 				

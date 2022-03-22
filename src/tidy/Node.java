@@ -327,13 +327,19 @@ public class Node {
 
     public static void trimEmptyElement(Lexer lexer, Node element)
     {
-
+    	TagTable tt = lexer.configuration.tt;
         if (lexer.canPrune(element))
         {
             if (element.type != TextNode)
                 Report.warning(lexer, element, null, Report.TRIM_EMPTY_ELEMENT);
 
             discardElement(element);
+        }else if (element.tag == tt.tagP && element.content == null)
+        {
+            /* replace <p></p> by <br><br> to preserve formatting */
+            Node node = lexer.inferredTag("br");
+            Node.coerceNode(lexer, element, tt.tagBr);
+            Node.insertNodeAfterElement(element, node);
         }
     }
 

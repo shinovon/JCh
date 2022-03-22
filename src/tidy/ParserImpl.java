@@ -50,7 +50,7 @@ public class ParserImpl {
         else if (!((node.tag.model & Dict.CM_INLINE) != 0))
             lexer.insertspace = false;
 *******/
-
+    	if(node.tag == null) return;
         if (!((node.tag.model & Dict.CM_INLINE) != 0))
             lexer.insertspace = false;
 
@@ -283,7 +283,7 @@ public class ParserImpl {
                   to match Netscape's observed behaviour.
                 */
                 lexer.excludeBlocks = false;
-        
+                if(node.tag != null)
                 if (!((node.tag.model & Dict.CM_BLOCK) != 0) &&
                     !((node.tag.model & Dict.CM_INLINE) != 0))
                 {
@@ -354,14 +354,22 @@ public class ParserImpl {
 
                 if (node.type == Node.EndTag)
                 {
+                	if(node.tag != null)
                     if (node.tag == tt.tagBr)
                         node.type = Node.StartTag;
+                    else if (node.tag == tt.tagP)
+                    {
+                        Node.coerceNode(lexer, node, tt.tagBr);
+                        Node.insertNodeAtEnd(body, node);
+                        node = lexer.inferredTag("br");
+                    }
                     else if ((node.tag.model & Dict.CM_INLINE) != 0)
                         lexer.popInline(node);
                 }
 
                 if (node.type == Node.StartTag || node.type == Node.StartEndTag)
                 {
+                	if(node.tag != null)
                     if (((node.tag.model & Dict.CM_INLINE) != 0) && !((node.tag.model & Dict.CM_MIXED) != 0))
                     {
 
@@ -515,16 +523,37 @@ public class ParserImpl {
                     Node.trimEmptyElement(lexer, element);
                     return;
                 }*/
-
+                if (node.tag == tt.tagP &&
+                        node.type == Node.StartTag &&
+                        ((mode & Lexer.Preformatted) != 0))
+                  {
+                      node.tag = tt.tagBr;
+                      node.element = "br";
+                      Node.trimSpaces(lexer, element);
+                      Node.insertNodeAtEnd(element, node);
+                      continue;
+                  }
                 if (node.tag == tt.tagBr && node.type == Node.EndTag)
                     node.type = Node.StartTag;
 
-               // if (node.type == Node.EndTag)
-                //{
+                if (node.type == Node.EndTag)
+                {
                     /* coerce </br> to <br> */
-                	/*
+                	
                     if (node.tag == tt.tagBr)
                         node.type = Node.StartTag;
+                    else if (node.tag == tt.tagP)
+                    {
+                        /* coerce unmatched </p> to <br><br> */
+                        if (!element.isDescendantOf(tt.tagP))
+                        {
+                            Node.coerceNode(lexer, node, tt.tagBr);
+                            Node.trimSpaces(lexer, element);
+                            Node.insertNodeAtEnd(element, node);
+                            node = lexer.inferredTag("br");
+                            continue;
+                        }
+                    }
                     else if ((node.tag.model & Dict.CM_INLINE) != 0
                                 && node.tag != tt.tagA
                                         && !((node.tag.model & Dict.CM_OBJECT) != 0)
@@ -563,8 +592,8 @@ public class ParserImpl {
                         Node.trimSpaces(lexer, element);
                         Node.trimEmptyElement(lexer, element);
                         return;
-                    }*/
-               // }
+                    }
+                }
 
                 /* allow any header tag to end current header */
                 if ((node.tag.model & Dict.CM_HEADING) != 0 && (element.tag.model & Dict.CM_HEADING) != 0)
