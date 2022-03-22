@@ -394,6 +394,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				display.setCurrent(mainFrm);
 				boardFrm.deleteAll();
 				boardFrm = null;
+				boardSearchField = null;
 			} else if(d == threadFrm) {
 				display.setCurrent(searchFrm != null ? searchFrm : boardFrm != null ? boardFrm : mainFrm);
 				if(lastThread != null && lastThread.isAlive()) {
@@ -421,6 +422,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				} else {
 					display.setCurrent(mainFrm);
 				}
+				postingFrm = null;
 			} else if(d == settingsFrm) {
 				direct2ch = setChoice.isSelected(0);
 				directFile = setChoice.isSelected(1);
@@ -482,8 +484,10 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			} else if(d == searchFrm) {
 				display.setCurrent(boardFrm);
 				clearThreadData();
+				searchLinks.clear();
 				searchFrm.deleteAll();
 				searchFrm = null;
+				searchField = null;
 			} else if(d == tempTextBox) {
 				display.setCurrent(mainFrm);
 				tempTextBox = null;
@@ -866,7 +870,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			searchFrm.addCommand(backCmd);
 			searchFrm.setCommandListener(inst);
 			if(boardSearchField != null) {
-				searchFrm.append(searchField = new TextField("Поиск", boardSearchField.getString(), 100, TextField.ANY));
+				searchFrm.append(searchField = new TextField("Поиск", searchField != null ? searchField.getString() : boardSearchField.getString(), 100, TextField.ANY));
 				searchField.addCommand(boardSearchItemCmd);
 				searchField.setItemCommandListener(inst);
 			}
@@ -1492,6 +1496,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			JSONArray th = j.getNullableArray("threads");
 			if(th == null)
 				return;
+			j = null;
 			int l = th.size();
 			removeLoadingLabel(boardFrm);
 			for(int i = 0; i < l && i < 20; i++) {
@@ -1504,9 +1509,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				s.setItemCommandListener(inst);
 				boardFrm.append(s);
 				//boardFrm.append(text(comment) + "\n");
+				Thread.yield();
 			}
+			th = null;
+			System.gc();
 		} catch (InterruptedException e) {
-		} catch (Exception e) {
+		} catch (Throwable e) {
 			e.printStackTrace();
 			try {
 				removeLoadingLabel(boardFrm);
@@ -2183,6 +2191,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 						}
 					}
 				}
+				/*
 				try {
 					return Integer.valueOf(str);
 				} catch (Exception e) {
@@ -2194,7 +2203,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 						} catch (Exception e3) {
 						}
 					}
-				}
+				}*/
 				/*
 				if(str.length() == 0 || str.equals("") || str.equals(" "))
 					throw new Exception("JSON: Empty value");
