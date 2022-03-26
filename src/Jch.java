@@ -219,26 +219,30 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			loadBoard(currentBoard);
 			break;
 		case 5:
-			try {
-				while(running) {
-					synchronized(thumbLoadLock) {
-						thumbLoadLock.wait();
-					}
-					while(thumbsToLoad.size() > 0) {
-						int i = 0;
-						Object[] o = (Object[]) thumbsToLoad.elementAt(i);
-						thumbsToLoad.removeElementAt(i);
-						String path = (String) o[0];
-						ImageItem img = (ImageItem) o[1];
-						img.setImage(getImg(path));
-					}
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+			thumbsLoadLoop();
 			break;
 		default:
 			break;
+		}
+	}
+	
+	private void thumbsLoadLoop() {
+		try {
+			while(running) {
+				synchronized(thumbLoadLock) {
+					thumbLoadLock.wait();
+				}
+				while(thumbsToLoad.size() > 0) {
+					int i = 0;
+					Object[] o = (Object[]) thumbsToLoad.elementAt(i);
+					thumbsToLoad.removeElementAt(i);
+					String path = (String) o[0];
+					ImageItem img = (ImageItem) o[1];
+					img.setImage(getImg(path));
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -780,6 +784,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		spoilers.clear();
 		comments.clear();
 		thumbsToLoad.removeAllElements();
+		currentIndex = 0;
+		postsCount = 0;
 	}
 
 	public void commandAction(Command c, Item item) {
@@ -1074,8 +1080,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	private static void parsePosts(Form f, JSONArray posts, int offset, boolean search) {
+		System.gc();
 		int l = posts.size();
-		if(offset != 0) {
+		if(offset != 0 && currentIndex != 0) {
 			StringItem s = new StringItem(null, "");
 			f.append(s);
 			StringItem btn = new StringItem(null, "Предыдущие посты");
@@ -1548,7 +1555,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	public static Image getImg(String url) throws IOException {
-		return getImg(url, direct2ch ? null : previewProxyUrl);
+		try {
+			return getImg(url, direct2ch ? null : previewProxyUrl);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		}
 	}
 	
 	public static Image getImg(String url, String proxy) throws IOException {
