@@ -49,7 +49,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			+ "версия <ver><br><br>"
 			+ "Клиент <a href=\"https://2ch.hk\">2ch.hk</a> для Symbian/J2ME устройств<br><br>"
 			+ "<b>Разработал</b><br>"
-			+ "Shinovon (<a href=\"http://nnp.nnchan.ru\">nnproject.cc</a>)<br><br>"
+			+ "Shinovon (<a href=\"http://nnp.nnchan.ru\">nnproject</a>)<br><br>"
 			+ "<b>Использованые библиотеки</b><br>"
 			+ "org.w3c.dom<br>"
 			+ "org.w3c.tidy<br>"
@@ -70,7 +70,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	
 	private static final String CONFIG_RECORD_NAME = "jchconfig";
 	private static final String DEFAULT_INSTANCE_URL = "2ch.hk";
-	private static final String DEFAULT_GLYPE_URL = "http://nnp.nnchan.ru/glype/browse.php?u=";
+	private static final String DEFAULT_PROXY_URL = "http://nnp.nnchan.ru:80/2chproxy.php";
 
 	private static Command exitCmd = new Command("Выход", Command.EXIT, 0);
 	private static Command backCmd = new Command("Назад", Command.BACK, 0);
@@ -87,8 +87,10 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Command postTextItemCmd = new Command("Ред. текст", Command.ITEM, 0);
 	private static Command postAddFileItemCmd = new Command("Добавить файл", Command.ITEM, 0);
 	private static Command openByLinkItemCmd = new Command("Открыть по ссылке", Command.ITEM, 0);
+	private static Command proxyInfoItemCmd = new Command("Свой прокси", Command.ITEM, 0);
 	private static Command postThreadCmd = new Command("Запостить тред", Command.SCREEN, 0);
 	private static Command postCommentCmd = new Command("Ответить в тред", Command.SCREEN, 0);
+	private static Command threadGotoStartCmd = new Command("Перейти к началу треда", Command.SCREEN, 0);
 	private static Command aboutCmd = new Command("О программе", Command.SCREEN, 0);
 	private static Command settingsCmd = new Command("Настройки", Command.SCREEN, 0);
 	//private static Command agreeCmd = new Command("Да", Command.OK, 0);
@@ -96,7 +98,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Command postCmd = new Command("Запостить", Command.OK, 0);
 	private static Command captchaConfirmCmd = new Command("Подтвердить", Command.OK, 0);
 	private static Command textOkCmd = new Command("Ок", Command.OK, 0);
-	private static Command threadGotoStartCmd = new Command("Перейти к началу треда", Command.SCREEN, 0);
 	private static Command linkOkCmd = new Command("Ок", Command.OK, 0);
 	
 	static Display display;
@@ -177,9 +178,10 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	// Settings
 	private static boolean direct2ch;
 	private static String instanceUrl = DEFAULT_INSTANCE_URL;
-	private static String apiProxyUrl = DEFAULT_GLYPE_URL;
-	private static String previewProxyUrl = DEFAULT_GLYPE_URL;
-	private static String fileProxyUrl = DEFAULT_GLYPE_URL;
+	private static String apiProxyUrl = DEFAULT_PROXY_URL;
+	// если прокси одинаковые то зачем делать их три штуки
+	private static String previewProxyUrl = DEFAULT_PROXY_URL;
+	private static String fileProxyUrl = DEFAULT_PROXY_URL;
 	private static int maxPostsCount = 10;
 	private static boolean time2ch;
 	private static boolean filePreview = true;
@@ -298,8 +300,16 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			} catch (Exception e) {
 			}
 		}
+		// авто замена прокси для старых дев билдов
+		if(apiProxyUrl == null || apiProxyUrl.length() < 2 || apiProxyUrl.endsWith("=")) {
+			apiProxyUrl = DEFAULT_PROXY_URL;
+			previewProxyUrl = DEFAULT_PROXY_URL;
+			fileProxyUrl = DEFAULT_PROXY_URL;
+		}
 		thumbLoaderThread.setPriority(2);
 		thumbLoaderThread.start();
+		// предупреждалка для эмуляторов
+		// потому что в эмуляторах оно действительно выглядит как говно
 		String s = System.getProperty("os.name");
 		if(s != null) {
 			s = s.toLowerCase();
@@ -489,6 +499,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			} else if(d == tempTextBox) {
 				display.setCurrent(mainFrm);
 				tempTextBox = null;
+			} else {
+				display.setCurrent(settingsFrm);
 			}
 	
 			System.gc();
@@ -536,6 +548,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				settingsFrm.append(setPreviewProxyField);
 				setFileProxyField = new TextField("Прокси для открытия файлов", fileProxyUrl, 100, directFile ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 				settingsFrm.append(setFileProxyField);
+				StringItem s = new StringItem(null, "Свой прокси", Item.BUTTON);
+				s.setLayout(Item.LAYOUT_EXPAND);
+				settingsFrm.append(s);
+				s.addCommand(proxyInfoItemCmd);
+				s.setDefaultCommand(proxyInfoItemCmd);
+				s.setItemCommandListener(inst);
 			}
 			display(settingsFrm);
 		} else if(c == postCmd) {
@@ -575,7 +593,10 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 							;
 			//captchaFrm.append(content);
 			try {
-				byte[] b = post("http://nnp.nnchan.ru:80/2chpost.php", content);
+				if(apiProxyUrl == null || apiProxyUrl.length() < 2 || apiProxyUrl.endsWith("=")) {
+					apiProxyUrl = DEFAULT_PROXY_URL;
+				}
+				byte[] b = post(apiProxyUrl + "?post=true", content);
 				String s = null;
 				try {
 					s = new String(b, "UTF-8");
@@ -675,12 +696,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	private static void generateCaptcha() throws Exception {
-		result = getObject(getString("http://nnp.nnchan.ru:80/glype/browse.php?u=https://2ch.life/api/captcha/2chcaptcha/id"));
+		result = getObject(getString(apiProxyUrl + "?u=https://2ch.life/api/captcha/2chcaptcha/id"));
 		captchaId = ((JSONObject) result).getString("id");
 		//String input = ((JSONObject) result).getString("input");
 		//System.out.println(captchaId + " " + input);
 	
-		byte[] b = get("http://nnp.nnchan.ru:80/glype/browse.php?u=https://2ch.life/api/captcha/2chcaptcha/show?id=" + captchaId);
+		byte[] b = get(apiProxyUrl + "?u=https://2ch.life/api/captcha/2chcaptcha/show?id=" + captchaId);
 		captchaFrm.append(Image.createImage(b, 0, b.length));
 		
 		/*
@@ -761,7 +782,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		postTextBtn.setDefaultCommand(postTextItemCmd);
 		postTextBtn.setItemCommandListener(inst);
 		postingFrm.append(postTextBtn);
-		
+		//TODO: загрузка файлов
 		StringItem s = new StringItem(null, "Добавить файл", Item.BUTTON);
 		s.setLayout(Item.LAYOUT_CENTER);
 		s.addCommand(postAddFileItemCmd);
@@ -771,6 +792,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		display(postingFrm);
 	}
 
+	// отчистка всего говна от тредов и "хтмл парса"
 	private static void clearThreadData() {
 		files.clear();
 		links.clear();
@@ -789,17 +811,21 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		if(c == boardFieldCmd) {
 			board(boardField.getString());
 		} else if(c == boardCmd || c.getLabel().startsWith("Треды")) {
+			// открытие борда
 			if(item instanceof TextField)
 				board(((TextField)item).getString());
 			else if(item instanceof StringItem)
 				board(split(((StringItem)item).getText(), '/')[1]);
 		} else if(c == openThreadCmd && item.getLabel().startsWith("#")) {
+			// открытие треда
 			String s = item.getLabel().substring(1);
 			//s = s.substring(0, s.indexOf(" "));
 			openThread(s);
 		} else if(c == fileImgItemOpenCmd) {
+			// открытие файла
 			String path = (String) files.get(item);
 			if(path != null) {
+				//TODO: передача куков для юзеркода
 				try {
 					if(midlet.platformRequest(prepareUrl(path, directFile ? null : fileProxyUrl, instanceUrl))) {
 						//notifyDestroyed();
@@ -815,6 +841,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			}
 			//System.out.println(path);
 			if(path != null) {
+				// парс внутренней ссылки
 				if(path.startsWith("/") || path.startsWith("https://2ch.hk/") || path.startsWith("https://2ch.life/") || path.startsWith("https://" + instanceUrl + "/")) {
 					if(path.indexOf("/res/") != -1 && path.indexOf(".html") != -1) {
 						String bd = path;
@@ -846,9 +873,15 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 						}
 					} else {
 						try {
+							// прокси теперь не глайп поэтому не проксируем
+							if(midlet.platformRequest(path)) {
+								//notifyDestroyed();
+							}
+							/*
 							if(midlet.platformRequest(prepareUrl(path, directFile ? null : fileProxyUrl, instanceUrl))) {
 								//notifyDestroyed();
 							}
+							*/
 						} catch (Exception e) {
 							e.printStackTrace();
 						}
@@ -899,12 +932,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				clearThreadData();
 				searchFrm.deleteAll();
 				currentIndex += maxPostsCount;
-				parsePosts(searchFrm, cachedPosts, maxPostsCount, true);
+				parsePosts(searchFrm, cachedPosts, true, true);
 			} else {
 				clearThreadData();
 				threadFrm.deleteAll();
 				currentIndex += maxPostsCount;
-				parsePosts(threadFrm, cachedPosts, maxPostsCount, false);
+				parsePosts(threadFrm, cachedPosts, true, false);
 			}
 		} else if(c == prevPostsItemCmd) {
 			if(searchFrm != null) {
@@ -912,13 +945,13 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				searchFrm.deleteAll();
 				currentIndex -= maxPostsCount;
 				if(currentIndex < 0) currentIndex = 0;
-				parsePosts(searchFrm, cachedPosts, maxPostsCount, true);
+				parsePosts(searchFrm, cachedPosts, true, true);
 			} else {
 				clearThreadData();
 				threadFrm.deleteAll();
 				currentIndex -= maxPostsCount;
 				if(currentIndex < 0) currentIndex = 0;
-				parsePosts(threadFrm, cachedPosts, maxPostsCount, false);
+				parsePosts(threadFrm, cachedPosts, true, false);
 			}
 		} else if(c == boardsItemCmd) {
 			if(boardsFrm != null) {
@@ -944,12 +977,23 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			tempTextBox.addCommand(backCmd);
 			tempTextBox.setCommandListener(inst);
 			display(tempTextBox);
+		} else if(c == proxyInfoItemCmd) {
+			// туториалов не будет.
+			TextBox t = new TextBox("", "", 200, TextField.URL);
+			t.setTitle("Ссылка на скрипт");
+			t.setString("nnp.nnchan.ru/2chproxy.txt");
+			t.addCommand(backCmd);
+			t.setCommandListener(inst);
+			display(t);
 		}
 	}
 	
 	private static void loadSearch(final String q) {
 		try {
 			postsCount = -1;
+			if(apiProxyUrl == null || apiProxyUrl.length() < 2 || apiProxyUrl.endsWith("=")) {
+				apiProxyUrl = DEFAULT_PROXY_URL;
+			}
 			getResult("makaba/makaba.fcgi?json=1&task=search&board=" + currentBoard + "&find=" + encodeUrl(q), apiProxyUrl, "2ch.life");
 			if (!(result instanceof JSONObject))
 				throw new RuntimeException("Result not object: " + result);
@@ -962,7 +1006,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				searchFrm.append(s);
 				return;
 			}
-			parsePosts(searchFrm, posts, 0, true);
+			parsePosts(searchFrm, posts, false, true);
 			System.gc();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -1065,7 +1109,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				}
 				if(threadFrm != null) removeLoadingLabel(threadFrm);
 				else return;
-				parsePosts(threadFrm, posts, 0, false);
+				parsePosts(threadFrm, posts, false, false);
 			} catch (InterruptedException e) {
 			} catch (Throwable e) {
 				e.printStackTrace();
@@ -1081,10 +1125,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		}
 	}
 
-	private static void parsePosts(Form f, JSONArray posts, int offset, boolean search) {
+	// оффсет это если прокручено
+	private static void parsePosts(Form f, JSONArray posts, boolean offset, boolean search) {
+		// внезапная очистка
 		System.gc();
 		int l = posts.size();
-		if(offset != 0 && currentIndex != 0) {
+		if(offset && currentIndex != 0) {
 			StringItem s = new StringItem(null, "");
 			f.append(s);
 			StringItem btn = new StringItem(null, "Предыдущие посты");
@@ -1105,12 +1151,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			} catch (InterruptedException e) {
 				return;
 			}
-			if(i + currentIndex + offset >= l || (postsCount > 0 ? i + currentIndex + offset >= postsCount : false)) {
+			if(i + currentIndex >= l || (postsCount > 0 ? i + currentIndex >= postsCount : false)) {
 				//System.out.println("limit: " + (i + currentIndex) + " " + postsCount);
 				return;
 			}
 			if(i >= maxPostsCount) {
-				if(offset == 0) {
+				if(!offset) {
 					currentIndex = 0;
 					cachedPosts = posts;
 				}
@@ -1129,6 +1175,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				String num = post.getString("num", "");
 				//System.out.println(post.toString());
 				if(search) {
+					// заголовок поста для формы поиска
 					StringItem title = new StringItem(null, htmlText(post.getString("name", "")).concat("\n").concat(time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))));
 					title.setFont(smallBoldFont);
 					title.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
@@ -1187,6 +1234,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		}
 	}
 
+	// парсер дат постов
 	private static String parsePostDate(long time) {
 		Calendar c = Calendar.getInstance();
 		c.setTime(new Date(time*1000));
@@ -1205,137 +1253,15 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		} else return i(n);
 	}
 	
+	// зачемто надо
 	private static String i(int n) {
 		return Integer.toString(n);
 	}
 	
 	protected static void parseHtmlText(Form f, String s) {
+		// новый парс
 		recursionParse(f, tidy.parseDOM("<html>".concat(s).concat("</html>")).getDocumentElement().getChildNodes());
-		/*
-		return;
-		int ti;
-		int tl;
-		for (ti = 0, tl = s.length(); ti < tl && htmlRe.match(s, ti); ti = htmlRe.getParenEnd(0)) {
-			String o = s.substring(ti, htmlRe.getParenStart(0));
-			if(o != null && o.length() > 0) {
-				o = htmlText(o);
-				boolean b = o.endsWith(" ");
-				if(b) o = o.substring(0, o.length() - 1);
-				if(o.length() > 0) {
-					StringItem textitem = new StringItem(null, o);
-					textitem.setFont(smallPlainFont);
-					textitem.setLayout(Item.LAYOUT_2);
-					f.append(textitem);
-				}
-				if(b) {
-					Spacer s2 = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
-					s2.setLayout(Item.LAYOUT_2);
-					f.append(s2);
-				}
-			}
-			String w = htmlRe.getParen(0);
-			if(w.startsWith("<a")) {
-				// ссылка
-				String t = htmlRe.getParen(2);
-				String link = null;
-				if(hrefRe.match(t)) {
-					link = hrefRe.getParen(2);
-					//System.out.println(link);
-					link = htmlText(link);
-				}
-				String c = htmlRe.getParen(3);
-				c = htmlText(c);
-				StringItem linkitem = new StringItem(null, c);
-				linkitem.setFont(smallUnderlinedFont);
-				linkitem.setLayout(Item.LAYOUT_2);
-				linkitem.addCommand(postLinkItemCmd);
-				linkitem.setDefaultCommand(postLinkItemCmd);
-				linkitem.setItemCommandListener(inst);
-				f.append(linkitem);
-				links.put(linkitem, link);
-			} else if(w.startsWith("<strong>")) {
-				// жирный текст
-				String c = htmlRe.getParen(4);
-				c = htmlText(c);
-				StringItem bolditem = new StringItem(null, c);
-				bolditem.setFont(smallBoldFont);
-				bolditem.setLayout(Item.LAYOUT_2);
-				f.append(bolditem);
-			} else if(w.startsWith("<b>")) {
-				// жирный текст
-				String c = htmlRe.getParen(5);
-				c = htmlText(c);
-				StringItem bolditem = new StringItem(null, c);
-				bolditem.setFont(smallBoldFont);
-				bolditem.setLayout(Item.LAYOUT_2);
-				f.append(bolditem);
-			} else if(w.startsWith("<i>")) {
-				// жирный текст
-				String c = htmlRe.getParen(6);
-				c = htmlText(c);
-				StringItem bolditem = new StringItem(null, c);
-				bolditem.setFont(smallBoldFont);
-				bolditem.setLayout(Item.LAYOUT_2);
-				f.append(bolditem);
-			} else if(w.startsWith("<em>")) {
-				// курсивный текст
-				String c = htmlRe.getParen(7);
-				c = htmlText(c);
-				StringItem textitem = new StringItem(null, c);
-				textitem.setFont(smallItalicFont);
-				textitem.setLayout(Item.LAYOUT_2);
-				f.append(textitem);
-			} else if(w.startsWith("<span")) {
-				String t = htmlRe.getParen(8);
-				String cls = null;
-				if(classRe.match(t)) {
-					cls = classRe.getParen(2);
-				}
-				String c = htmlRe.getParen(9);
-				c = htmlText(c);
-				StringItem textitem = new StringItem(null, c);
-				textitem.setFont(smallPlainFont);
-				textitem.setLayout(Item.LAYOUT_2);
-				if(cls.equals("s")) {
-					// зачеркнутый текст, но в lcdui такого стиля шрифта нету
-				} else if(cls.equals("u")) {
-					// подчеркнутый текст
-					textitem.setFont(smallUnderlinedFont);
-				} else if(cls.equals("o")) {
-					// надчеркнутый текст
-					textitem.setFont(smallUnderlinedFont);
-				} else if(cls.equals("spoiler")) {
-					// спойлер
-					textitem.setText("[спойлер]");
-					textitem.addCommand(postSpoilerItemCmd);
-					textitem.setDefaultCommand(postSpoilerItemCmd);
-					textitem.setItemCommandListener(inst);
-					spoilers.put(textitem, c);
-					//textitem.setFont(Font.getFont(0, Font.STYLE_UNDERLINED, Font.SIZE_SMALL));
-				} else if(cls.equals("unkfunc")) {
-					// цитата
-				}
-				f.append(textitem);
-			} else if(w.startsWith("<h1>")) {
-				String c = htmlRe.getParen(11);
-				System.out.println("h " + c);
-				c = htmlText(c);
-				StringItem bolditem = new StringItem(null, c);
-				bolditem.setFont(largeBoldFont);
-				bolditem.setLayout(Item.LAYOUT_2);
-				f.append(bolditem);
-			}
-		}
-		if (ti < tl) {
-			String o = s.substring(ti);
-			if(o != null && !o.equals("")) {
-				StringItem textitem = new StringItem(null, o = htmlText(o));
-				textitem.setFont(smallPlainFont);
-				textitem.setLayout(Item.LAYOUT_2);
-				f.append(textitem);
-			}
-        }
-        */
+		// здесь покоится старый парс на регексах
 	}
 
 	private static Font getFont(int i, int j, int k) {
@@ -1363,6 +1289,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		return Font.getFont(i, j, k);
 	}
 	
+	// парс в рекурсии
 	private static void recursionParse(Form f, NodeList nl) {
 		int l = nl.getLength();
 		for(int i = 0; i < l; i++) {
@@ -1386,6 +1313,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					layout |= Item.LAYOUT_NEWLINE_BEFORE;
 					v = v.substring(4);
 				}*/
+				// костыль, попалось один раз
 				v = replace(v, "\\r\\n", "\n");
 				StringItem st = new StringItem(null, v);
 				st.setLayout(Item.LAYOUT_2);
@@ -1393,15 +1321,17 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				if(n.getParentNode() != null) {
 					Node pn = n;
 					String pk;
+					// проверка всех родительских нодов
 					while(!((pn = pn.getParentNode()) == null || (pk = pn.getNodeName()).equals("body"))) {
-						
 						//System.out.println(":PARENT NODE " + pk);
+						// стили текста
 						if(pk.equals("a")) {
 							String link = null;
 							NamedNodeMap atr = pn.getAttributes();
 							if(atr.getNamedItem("href") != null) {
 								link = atr.getNamedItem("href").getNodeValue();
 							}
+							// ссылки в спойлерах
 							if(!spoil) {
 								st.addCommand(postLinkItemCmd);
 								st.setDefaultCommand(postLinkItemCmd);
@@ -1448,6 +1378,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 						}
 					}
 				}
+				// пробел, чтоб тексты не слипались
 				if(v.endsWith(" ") && !spoil) {
 					st.setText(v.substring(0, v.length()-1));
 					f.append(st);
@@ -1462,6 +1393,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				
 				if(b) f.append(st);
 			} else if(n.hasChildNodes()) {
+				// рекусрия
 				recursionParse(f, n.getChildNodes());
 			}
 		}
@@ -1469,6 +1401,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 
 	protected static void addFile(ImageItem img, String path, String thumb) {
 		files.put(img, path);
+		// тумбы
 		if(filePreview) {
 			thumbsToLoad.addElement(new Object[] { thumb, img });
 			synchronized(thumbLoadLock) {
@@ -1596,7 +1529,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		result = null;
 		String s2 = s;
 		result = getString(prepareUrl(s, proxy, inst));
+		// пустой ответ
 		if(result.toString().length() == 0) throw new IOException("Empty response: " + s2);
+		// проверка на жсон
 		char c = ((String) result).charAt(0);
 		if(c == '{')
 			result = getObject((String) result);
@@ -1613,9 +1548,10 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		if(url.endsWith("&") || url.endsWith("?"))
 			url = url.substring(0, url.length() - 1);
 		if(proxy != null && proxy.length() > 1) {
-			url = proxy + encodeUrl("https://" + inst + "/" + url);
+			//конкатконкатконкатконкатконкат
+			url = proxy.concat("?u=").concat(encodeUrl("https://".concat(inst).concat("/").concat(url)));
 		} else {
-			url = "https://" + inst + "/" +url;
+			url = "https://".concat(inst).concat("/").concat(url);
 		}
 		return url;
 	}
@@ -1625,6 +1561,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		midlet.notifyDestroyed();
 	}
 	
+	// здесь начинаются утилзы
 	public static String replace(String str, String from, String to) {
 		int j = str.indexOf(from);
 		if (j == -1)
@@ -1826,19 +1763,18 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					throw new IOException("Too many redirects!");
 				}
 			}
-			if (hc.getHeaderField("Set-Cookie") != null && !url.endsWith(".jpg")) {
+			boolean cookies = false;
+			if (hc.getHeaderField("set-cookie") != null) {
 				for (int i = 0;; i++) {
 					String k = hc.getHeaderFieldKey(i);
 					if (k == null)
 						break;
 					String v = hc.getHeaderField(i);
+					//System.out.println(k + ": " + v);
 					if(k.equalsIgnoreCase("set-cookie")) {
-						//System.out.println(k + ": " + v);
 						//if(v.indexOf("code_auth=") != -1) {
-						String[] f = split(v, ';');
-						String s = f[0];
-						if(s.startsWith(" ")) s = s.substring(1);
-						addCookie(s);
+						cookies = true;
+						addCookie(v);
 						//}
 					}
 				}
@@ -1851,6 +1787,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			while ((len = is.read(buf)) != -1) {
                o.write(buf, 0, len);
 			}
+			if(cookies)
+				saveCookies();
 			return o.toByteArray();
 		} catch (NullPointerException e) {
 			e.printStackTrace();
@@ -1866,10 +1804,35 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 	
 	private static void addCookie(String s) {
-		//System.out.println("addCookie " + s);
-		
+		String v = s;
+		if(s.indexOf(';') != -1) {
+		String[] f = split(s, ';');
+		v = f[0];
+		if(v.startsWith(" ")) v = s.substring(1);
+		}
+		System.out.println("addCookie " + s);
+		if(cookie == null) {
+			cookie = v;
+		} else {
+			cookie += "; " + v;
+		}
+	}
+	
+	private static void saveCookies() {
+		try {
+			RecordStore.deleteRecordStore("jchcookie");
+		} catch (Throwable e) {
+		}
+		try {
+			RecordStore r = RecordStore.openRecordStore("jchcookie", true);
+			byte[] b = cookie.getBytes();
+			r.addRecord(b, 0, b.length);
+			r.closeRecordStore();
+		} catch (Exception e) {
+		}
 	}
 
+	// пост для постинга
 	public static byte[] post(String url, String content) throws IOException {
 		//System.out.println("POST " + url);
 		//System.out.println(content);
@@ -1913,13 +1876,15 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					throw new IOException("Too many redirects!");
 				}
 			}
-			if (hc.getHeaderField("Set-Cookie") != null && !url.endsWith(".jpg")) {
+			//if (hc.getHeaderField("Set-Cookie") != null) {
+			/*
 				for (int i = 0;; i++) {
 					String k = hc.getHeaderFieldKey(i);
 					if (k == null)
 						break;
 					String v = hc.getHeaderField(i);
-					//System.out.println(k + ": " + v);
+					System.out.println(k + ": " + v);
+					
 					if(k.equalsIgnoreCase("set-cookie")) {
 						if(v.indexOf("code_auth=") != -1) {
 							String[] f = split(v, ';');
@@ -1933,8 +1898,22 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 							}
 						}
 					}
+				}*/
+			boolean cookies = false;
+			for (int i = 0;; i++) {
+				String k = hc.getHeaderFieldKey(i);
+				if (k == null)
+					break;
+				String v = hc.getHeaderField(i);
+				//System.out.println(k + ": " + v);
+				if(k.equalsIgnoreCase("set-cookie")) {
+					//if(v.indexOf("code_auth=") != -1) {
+					addCookie(v);
+					cookies = true;
+						//}
 				}
 			}
+			//}
 			is = hc.openInputStream();
 			o = new ByteArrayOutputStream();
 			byte[] buf = new byte[256];
@@ -1942,6 +1921,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			while ((len = is.read(buf)) != -1) {
                o.write(buf, 0, len);
 			}
+			if(cookies)
+				saveCookies();
 			return o.toByteArray();
 		} catch (NullPointerException e) {
 			e.printStackTrace();
@@ -1979,6 +1960,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		}
 	}
 
+	// нахера я ее делал
 	private static String useragent() {
 		if(useragent != null) return useragent;
 		String f = "Jch/" + version;
@@ -2258,7 +2240,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		}
 		return str;
 	}
-	
+	// здесь начинается выдранное из жсон либы
 	public final static Object null_equivalent = new NullEquivalent();
 	
 	private static final Boolean TRUE = new Boolean(true);
