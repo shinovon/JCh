@@ -186,7 +186,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static boolean directFile;
 	
 	private int func = 0;
-
 	
 	//private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
 	//private static final RE hrefRe = new RE("(href=\"(.*?)\")");
@@ -262,20 +261,19 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		mainFrm.addCommand(exitCmd);
 		mainFrm.addCommand(aboutCmd);
 		mainFrm.addCommand(settingsCmd);
-		mainFrm.append(boardField = new TextField("", "", 8, TextField.ANY));
-		boardField.setLabel("Доска");
+		mainFrm.append(boardField = new TextField("Доска", "", 8, TextField.ANY));
 		boardField.addCommand(boardFieldCmd);
 		boardField.setItemCommandListener(inst);
-		StringItem btn = new StringItem("", "Ввод", StringItem.BUTTON);
+		StringItem btn = new StringItem(null, "Ввод", StringItem.BUTTON);
 		btn.setDefaultCommand(boardFieldCmd);
 		btn.setItemCommandListener(inst);
 		mainFrm.append(btn);
-		StringItem btn2 = new StringItem("", "Доски", StringItem.BUTTON);
+		StringItem btn2 = new StringItem(null, "Доски", StringItem.BUTTON);
 		btn2.setLayout(Item.LAYOUT_EXPAND);
 		btn2.setDefaultCommand(boardsItemCmd);
 		btn2.setItemCommandListener(inst);
 		mainFrm.append(btn2);
-		StringItem btn3 = new StringItem("", "Открыть пост по ссылке", StringItem.BUTTON);
+		StringItem btn3 = new StringItem(null, "Открыть пост по ссылке", StringItem.BUTTON);
 		btn3.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_BEFORE);
 		btn3.setDefaultCommand(openByLinkItemCmd);
 		btn3.setItemCommandListener(inst);
@@ -367,8 +365,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				JSONObject board = (JSONObject) en.nextElement();
 				String id = board.getNullableString("id");
 				String name = board.getNullableString("name");
-				StringItem btn = new StringItem("", "", StringItem.BUTTON);
-				btn.setText("/" + id + "/ " + name);
+				StringItem btn = new StringItem(null, "/".concat(id).concat("/ ").concat(name), StringItem.BUTTON);
 				btn.setDefaultCommand(boardCmd);
 				btn.setItemCommandListener(inst);
 				btn.setLayout(Item.LAYOUT_EXPAND);
@@ -380,7 +377,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			e.printStackTrace();
 			removeLoadingLabel(boardsFrm);
 			addLoadingLabel(boardsFrm, "Ошибка!");
-			StringItem s = new StringItem("", e.toString());
+			StringItem s = new StringItem(null, e.toString());
 			s.setLayout(Item.LAYOUT_LEFT);
 			boardsFrm.append(s);
 		}
@@ -469,7 +466,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					} catch (Exception e) {
 						e.printStackTrace();
 						addLoadingLabel(captchaFrm, "Ошибка получения капчи");
-						StringItem s = new StringItem("", e.toString());
+						StringItem s = new StringItem(null, e.toString());
 						s.setLayout(Item.LAYOUT_LEFT);
 						captchaFrm.append(s);
 					}
@@ -553,7 +550,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			} catch (Exception e) {
 				e.printStackTrace();
 				addLoadingLabel(captchaFrm, "Ошибка получения капчи");
-				StringItem s = new StringItem("", e.toString());
+				StringItem s = new StringItem(null, e.toString());
 				s.setLayout(Item.LAYOUT_LEFT);
 				captchaFrm.append(s);
 				captchaFrm.addCommand(backCmd);
@@ -761,15 +758,14 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		postTextField = new TextField("Комментарий", "", 1000, TextField.ANY);
 		postTextField.setLayout(Item.LAYOUT_VEXPAND | Item.LAYOUT_EXPAND );
 		postingFrm.append(postTextField);
-		postTextBtn = new StringItem("", "", StringItem.BUTTON);
-		postTextBtn.setText("...");
+		postTextBtn = new StringItem(null, "...", StringItem.BUTTON);
 		postTextBtn.setLayout(Item.LAYOUT_RIGHT);
 		postTextBtn.addCommand(postTextItemCmd);
 		postTextBtn.setDefaultCommand(postTextItemCmd);
 		postTextBtn.setItemCommandListener(inst);
 		postingFrm.append(postTextBtn);
 		
-		StringItem s = new StringItem("", "Добавить файл", Item.BUTTON);
+		StringItem s = new StringItem(null, "Добавить файл", Item.BUTTON);
 		s.setLayout(Item.LAYOUT_CENTER);
 		s.addCommand(postAddFileItemCmd);
 		s.setDefaultCommand(postAddFileItemCmd);
@@ -872,24 +868,33 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			}
 		} else if(c == boardSearchItemCmd) {
 			searchLinks.clear();
+			clearThreadData();
+			searchFrm.deleteAll();
 			searchFrm = new Form("Jch - Результаты поиска");
 			searchFrm.addCommand(backCmd);
 			searchFrm.setCommandListener(inst);
-			if(boardSearchField != null) {
-				searchFrm.append(searchField = new TextField("Поиск", searchField != null ? searchField.getString() : boardSearchField.getString(), 100, TextField.ANY));
-				searchField.addCommand(boardSearchItemCmd);
-				searchField.setItemCommandListener(inst);
-			}
-			display(searchFrm);
 			query = ((TextField)item).getString();
+			if(boardSearchField != null)
+				boardSearchField.setString(query);
+			searchFrm.append(searchField = new TextField("Поиск", query, 100, TextField.ANY));
+			searchField.addCommand(boardSearchItemCmd);
+			searchField.setItemCommandListener(inst);
+			display(searchFrm);
 			(lastThread = new Thread(new Jch(2))).start();
 		} else if (c == postSpoilerItemCmd) {
 			String t = (String) spoilers.get(item);
 			if(t != null) {
+				String l = (String) links.get(item);
 				StringItem s = ((StringItem) item);
 				s.setText(t);
 				//s.setDefaultCommand(null);
-				s.setItemCommandListener(null);
+				if(l == null) {
+					s.setItemCommandListener(null);
+				} else {
+					s.removeCommand(postSpoilerItemCmd);
+					s.addCommand(postLinkItemCmd);
+					s.setDefaultCommand(postLinkItemCmd);
+				}
 				//s.removeCommand(postSpoilerItemCmd);
 			}
 		} else if(c == nextPostsItemCmd) {
@@ -955,7 +960,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			JSONArray posts = j.getNullableArray("posts");
 			result = j = null;
 			if (posts == null || posts.size() == 0) {
-				StringItem s = new StringItem("", "Ничего не найдено");
+				StringItem s = new StringItem(null, "Ничего не найдено");
 				s.setLayout(Item.LAYOUT_CENTER);
 				searchFrm.append(s);
 				return;
@@ -966,7 +971,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			e.printStackTrace();
 			removeLoadingLabel(threadFrm);
 			addLoadingLabel(threadFrm, "Ошибка!");
-			StringItem s = new StringItem("", e.toString());
+			StringItem s = new StringItem(null, e.toString());
 			s.setLayout(Item.LAYOUT_LEFT);
 			searchFrm.append(s);
 		}
@@ -1070,7 +1075,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				if(threadFrm != null) {
 					removeLoadingLabel(threadFrm);
 					addLoadingLabel(threadFrm, "Ошибка!");
-					StringItem s = new StringItem("", e.toString());
+					StringItem s = new StringItem(null, e.toString());
 					s.setLayout(Item.LAYOUT_LEFT);
 					threadFrm.append(s);
 				}
@@ -1127,21 +1132,24 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				String num = post.getString("num", "");
 				//System.out.println(post.toString());
 				if(search) {
-					StringItem title = new StringItem(null, htmlText(post.getString("name", "")) + "\n" + (time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))));
+					StringItem title = new StringItem(null, htmlText(post.getString("name", "")).concat("\n").concat(time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))));
 					title.setFont(smallBoldFont);
 					title.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
 					f.append(title);
 	
-					StringItem snum = new StringItem(null, " #" + num);
+					StringItem snum = new StringItem(null, " #".concat(num));
 					snum.setFont(smallBoldFont);
 					snum.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_LEFT);
 					f.append(snum);
 					snum.addCommand(postLinkItemCmd);
 					snum.setDefaultCommand(postLinkItemCmd);
 					snum.setItemCommandListener(inst);
-					searchLinks.put(snum, "/" + currentBoard + "/res/" + post.getString("parent", "") + ".html#" + num);
+					searchLinks.put(snum, "/".concat(currentBoard).concat("/res/").concat(post.getString("parent", "")).concat(".html#").concat(num));
 				} else {
-					StringItem title = new StringItem(null, "\n"+htmlText(post.getString("name", "")) + "\n" + (time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))) + " #" + num);
+					StringItem title = new StringItem(null, "\n"
+							.concat(htmlText(post.getString("name", ""))).concat("\n")
+							.concat(time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0)))
+							.concat(" #").concat(num));
 					title.setFont(smallBoldFont);
 					title.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
 					
@@ -1185,19 +1193,27 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static String parsePostDate(long time) {
 		Calendar c = Calendar.getInstance();
 		c.setTime(new Date(time*1000));
-		String s = n(c.get(Calendar.DAY_OF_MONTH)) + "." + n(c.get(Calendar.MONTH)+1) + "." + c.get(Calendar.YEAR) + " " + n(c.get(Calendar.HOUR_OF_DAY)) + ":" + n(c.get(Calendar.MINUTE));
+		String s = n(c.get(Calendar.DAY_OF_MONTH)).concat(".")
+				.concat(n(c.get(Calendar.MONTH)+1)).concat(".")
+				.concat(i(c.get(Calendar.YEAR))).concat(" ")
+				.concat(n(c.get(Calendar.HOUR_OF_DAY))).concat(":")
+				.concat(n(c.get(Calendar.MINUTE)));
 		//System.out.println(time + " -> " + s);
 		return s;
 	}
 	
 	private static String n(int n) {
 		if(n < 10) {
-			return "0" + n;
-		} else return "" + n;
+			return "0".concat(Integer.toString(n));
+		} else return i(n);
+	}
+	
+	private static String i(int n) {
+		return Integer.toString(n);
 	}
 	
 	protected static void parseHtmlText(Form f, String s) {
-		recursionParse(f, tidy.parseDOM("<html>"+s+"</html>").getDocumentElement().getChildNodes());
+		recursionParse(f, tidy.parseDOM("<html>".concat(s).concat("</html>")).getDocumentElement().getChildNodes());
 		/*
 		return;
 		int ti;
@@ -1374,13 +1390,14 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					v = v.substring(4);
 				}*/
 				v = replace(v, "\\r\\n", "\n");
-				StringItem st = new StringItem("", v);
+				StringItem st = new StringItem(null, v);
 				st.setLayout(Item.LAYOUT_2);
+				boolean spoil = false;
 				if(n.getParentNode() != null) {
 					Node pn = n;
 					String pk;
 					while(!((pn = pn.getParentNode()) == null || (pk = pn.getNodeName()).equals("body"))) {
-
+						
 						//System.out.println(":PARENT NODE " + pk);
 						if(pk.equals("a")) {
 							String link = null;
@@ -1388,12 +1405,16 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 							if(atr.getNamedItem("href") != null) {
 								link = atr.getNamedItem("href").getNodeValue();
 							}
-							st.addCommand(postLinkItemCmd);
-							st.setDefaultCommand(postLinkItemCmd);
-							st.setItemCommandListener(inst);
+							if(!spoil) {
+								st.addCommand(postLinkItemCmd);
+								st.setDefaultCommand(postLinkItemCmd);
+								st.setItemCommandListener(inst);
+							}
 							links.put(st, link);
+							continue;
 						}
 						if(pk.equals("span")) {
+							spoil = true;
 							String cls = null;
 							NamedNodeMap atr = pn.getAttributes();
 							if(atr.getNamedItem("class") != null) {
@@ -1409,29 +1430,34 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 								st.setItemCommandListener(inst);
 								spoilers.put(st, v);
 							}
+							continue;
 						}
-						if(pk.equals("h1")) {
-							fsize = Font.SIZE_LARGE;
+						if(pk.equals("b") || pk.equals("strong") || (pk.length() == 2 && pk.startsWith("h"))) {
 							fstyle |= Font.STYLE_BOLD;
+							if(pk.equals("h1")) {
+								fsize = Font.SIZE_LARGE;
+							} else if(pk.equals("h2")) {
+								fsize = Font.SIZE_MEDIUM;
+							}
+							continue;
 						}
-						if(pk.equals("i") || pk.equals("b") || pk.equals("strong")) {
-							fstyle |= Font.STYLE_BOLD;
-						}
-						if(pk.equals("em")) {
+						if(pk.equals("em") || pk.equals("i")) {
 							fstyle |= Font.STYLE_ITALIC;
+							continue;
 						}
 						if(pk.equals("sub")) {
 							fstyle |= Font.STYLE_UNDERLINED;
+							continue;
 						}
 					}
-					if(v.endsWith(" ")) {
-						st.setText(v.substring(0, v.length()-1));
-						f.append(st);
-						b = false;
-						Spacer s2 = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
-						s2.setLayout(Item.LAYOUT_2);
-						f.append(s2);
-					}
+				}
+				if(v.endsWith(" ") && !spoil) {
+					st.setText(v.substring(0, v.length()-1));
+					f.append(st);
+					b = false;
+					Spacer s2 = new Spacer(smallPlainFont.charWidth(' ') + 1, smallPlainFont.getHeight());
+					s2.setLayout(Item.LAYOUT_2);
+					f.append(s2);
 				}
 				st.setLayout(Item.LAYOUT_2 | layout);
 				Font font = getFont(0, fstyle, fsize);
@@ -1477,8 +1503,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		boardFrm.addCommand(backCmd);
 		boardFrm.addCommand(postThreadCmd);
 		boardFrm.setCommandListener(inst);
-		boardFrm.append(boardSearchField = new TextField("","", 1000, TextField.ANY));
-		boardSearchField.setLabel("Поиск");
+		boardFrm.append(boardSearchField = new TextField("Поиск", "", 1000, TextField.ANY));
 		boardSearchField.addCommand(boardSearchItemCmd);
 		boardSearchField.setItemCommandListener(inst);
 		addLoadingLabel(boardFrm);
@@ -1526,7 +1551,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			try {
 				removeLoadingLabel(boardFrm);
 				addLoadingLabel(boardFrm, "Ошибка!");
-				StringItem s = new StringItem("", e.toString());
+				StringItem s = new StringItem(null, e.toString());
 				s.setLayout(Item.LAYOUT_LEFT);
 				boardFrm.append(s);
 			} catch (NullPointerException e2) {
