@@ -185,15 +185,13 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static boolean filePreview = true;
 	private static boolean directFile;
 	
+	private static String useragent;
+	
 	private int func = 0;
 	
 	//private static final RE htmlRe = new RE("(<a(.*?)>(.*?)</a>|<strong>(.*?)</strong>|<b>(.*?)</b>|<i>(.*?)</i>|<em>(.*?)</em>|<span(.*?)>(.*?)</span>|(<h>(.*?)</h>))");
 	//private static final RE hrefRe = new RE("(href=\"(.*?)\")");
 	//private static final RE classRe = new RE("(class=\"(.*?)\")");
-	
-	static String version() {
-		return version;
-	}
 	
 	public Jch(int f) { 
 		func = f;
@@ -203,7 +201,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	public void run() {
-		//XXX
 		switch(func) {
 		case 1:
 			_loadBoards();
@@ -1063,7 +1060,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				threadFrm.addCommand(postCommentCmd);
 				threadFrm.addCommand(threadGotoStartCmd);
 				if(j != null) {
-					threadFrm.setTitle("/" + bd + "/ - " + htmlText(j.getString("title", "")));
+					threadFrm.setTitle("/".concat(bd).concat("/ - ").concat(htmlText(j.getString("title", ""))));
 					postsCount = j.getInt("posts_count", j.getInt("posts", -1));
 				}
 				if(threadFrm != null) removeLoadingLabel(threadFrm);
@@ -1499,7 +1496,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 	
 	private static void createBoard(final String board) {
-		boardFrm = new Form("Jch - /" + board + "/");
+		boardFrm = new Form("Jch - /".concat(board).concat("/"));
 		boardFrm.addCommand(backCmd);
 		boardFrm.addCommand(postThreadCmd);
 		boardFrm.setCommandListener(inst);
@@ -1808,7 +1805,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			if(cookie != null) {
 				hc.setRequestProperty("Cookie", cookie);
 			}
-			hc.setRequestProperty("User-Agent", "JCh/" + version() + " (" + platform + ")");
 			//hc.setRequestProperty("Accept-Encoding", "identity");
 			int r = hc.getResponseCode();
 			if(r >= 400 && r != 401) throw new IOException(r + " " + hc.getResponseMessage());
@@ -1972,14 +1968,192 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	public static ContentConnection open(String url, int i) throws IOException {
 		try {
 			ContentConnection con = (ContentConnection) Connector.open(url, i);
-			//if (con instanceof HttpConnection)
-			//	((HttpConnection) con).setRequestProperty("User-Agent", "JCh/" + JChMIDlet.version() + " (" + platform + ")");
+			if (con instanceof HttpConnection) {
+				((HttpConnection) con).setRequestProperty("User-Agent", useragent());
+			}
 			return con;
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw e;
 			//throw new IOException(cut(cut(e.toString(), "Exception"), "java.io.") + " " + url);
 		}
+	}
+
+	private static String useragent() {
+		if(useragent != null) return useragent;
+		String f = "Jch/" + version;
+		String os = "";
+		String java = "";
+		String a = "";
+		try {
+			String platf = platform;
+			String s60p = null;
+			if(platf != null && platf.indexOf("/") != -1 && platf.indexOf("/", platf.indexOf("/") + 1) != -1) {
+				s60p = platf.substring(platf.indexOf("/", platf.indexOf("/") + 1) + 1);
+				platf = platf.substring(0, platf.indexOf("/", platf.indexOf("/") + 1));
+			}
+			String osn = System.getProperty("os.name");
+			String osnl = osn != null ? System.getProperty("os.name").toLowerCase() : null;
+			
+			String _os = osn;
+			
+			String osv = System.getProperty("os.version");
+			String osarch = System.getProperty("os.arch");
+			//String jfv = System.getProperty("java.fullversion");
+			String jver = System.getProperty("java.version");
+			String jven = System.getProperty("java.vendor");
+			String conf = System.getProperty("microedition.configuration");
+			if(conf == null) conf = "CLDC-1.0";
+			String prof = System.getProperty("microedition.profiles");
+			if(prof == null) prof = "MIDP-2.0";
+			else {
+				if(prof.indexOf('-') == -1 && (prof.toUpperCase()).indexOf("MIDP") == 0) {
+					prof = "MIDP-" + prof.substring(4);
+				}
+			}
+			String p1 = System.getProperty("om.symbian.default.to.suite.icon");
+			if(p1 == null) p1 = System.getProperty("com.symbian.midp.serversocket.support");
+			if(osn != null) {
+				// check for Windows
+				if(osnl.indexOf("win") != -1 ||
+						/* KEmulator nnmod */
+						(osnl.equals("symbian") && osv != null && !osv.startsWith("9."))
+						) {
+					boolean nt = osnl.indexOf("nt") != -1 || !(osv.startsWith("4.") || osv.startsWith("3."));
+					_os = "Windows";
+					if(nt) {
+						_os = "Windows NT";
+					}
+					_os += " " + osv;
+					if(osarch != null) {
+						_os += "; " + osarch;
+					}
+					if(jven != null && jven.toLowerCase().indexOf("oracle") != -1 && jver != null) {
+						java = "Java/" + jver;
+					}
+				// Symbian >=9.3
+				} else if(osn.equals("Symbian")) {
+					String s60v = null;
+					String jbv = null;
+					if(s60p != null) {
+						if(s60p.indexOf("sw_platform_version=") != -1) {
+							s60v = s60p.substring(s60p.indexOf("sw_platform_version=") + "sw_platform_version=".length());
+							if(s60v.indexOf(";") != -1) s60v = s60v.substring(0, s60v.indexOf(";"));
+						}
+						if(s60p.indexOf("java_build_version=") != -1) {
+							jbv = s60p.substring(s60p.indexOf("java_build_version=") + "java_build_version=".length());
+							if(jbv.indexOf(";") != -1) jbv = jbv.substring(0, jbv.indexOf(";"));
+						}
+					}
+					if(jbv != null) {
+						java = null;
+					}
+					_os = "Symbian";
+					if(s60p != null) {
+						if(s60v.equals("5.0")) _os += "OS/9.4";
+						else if(s60v.equals("3.2")) _os += "OS/9.3";
+						else _os += "/3";
+						_os += "; Series60/" + s60v;
+					}
+					_os += " " + platf;
+					/*if(jbv != null) {
+						_os += "; J9VM/" + jbv;
+					}*/
+					/*
+					if(osarch != null) {
+						_os += "; " + osarch;
+					}
+					*/
+					// Linux and Android
+				} else if(osn.equals("Linux")) {
+					_os = "Linux";
+					if(jven != null && jven.toLowerCase().indexOf("oracle") != -1 && jver != null) {
+						java = "Java/" + jver;
+					} else {
+						String vmname = System.getProperty("java.vm.name");
+						String vmv = System.getProperty("java.vm.version");
+						if(vmname != null && vmv != null && vmname.indexOf(" ") == -1) {
+							java = vmname + "/" +vmv;
+						}
+					}
+					String ha = System.getProperty("http.agent");
+					if(ha != null && ha.indexOf("Android") != -1) {
+						ha = ha.substring(ha.indexOf('(')+1);
+						ha = ha.substring(0, ha.indexOf(')'));
+						/*
+						if(ha.indexOf("; U") != -1) {
+							ha = ha.substring(0, ha.indexOf("; U")) + ha.substring(ha.indexOf("; U") + 3);
+						}
+						*/
+						_os = ha;
+						a = "Profile/" + prof + " Configuration/" + conf;
+						if(java != null && java.length() > 0) {
+							a += "; " + java;
+						}
+					} else {
+						if(jven != null && jven.toLowerCase().indexOf("android") != -1) {
+							_os += "; Android";
+						}
+						if(osarch != null) {
+							_os += "; " + osarch;
+						}
+					}
+				// Other
+				} else {
+					_os = osn;
+					if(osv != null) {
+						_os += " " + osv;
+					}
+					if(osarch != null) {
+						_os += osarch;
+					}
+					if(jven != null && jven.toLowerCase().indexOf("oracle") != -1 && jver != null) {
+						java = "Java/" + jver;
+					}
+				}
+			// Symbian <=9.2 or generic J2ME
+			} else {
+				if(p1 != null) {
+					_os = "SymbianOS/9.x; Series60/3.x " + platf;
+				} else {
+					if(platf != null) {
+						_os = platf;
+					}
+				}
+			}
+			// Profile & Configuration
+			if(a == null || a.length() == 0) {
+				if(_os != null) {
+					os = _os + "; Profile/" + prof + " Configuration/" + conf;
+				} else {
+					os = os + "Profile/" + prof + " Configuration/" + conf;
+				}
+				// Java runtime version
+				if(java != null && java.length() > 0) {
+					os += "; " + java;
+				}
+			} else {
+				if(_os != null) {
+					os = _os;
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		String res = f;
+		if(os != null && os.length() > 0) {
+			res += " (" + os + ")";
+		}
+		if(a != null && a.length() > 0) {
+			res += " " + a;
+		}
+		//res += " Jch/0.7.2";
+		//if(java != null && java.length() > 0) {
+		//	res += " " + java;
+		//}
+		//res += " Mozilla/5.0 (compatible)";
+		//System.out.println(res);
+		return useragent = res;
 	}
 
 	public static String htmlText(String str) {
