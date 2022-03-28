@@ -1,7 +1,10 @@
-MIDlet-Version: 0.7.4
+MIDlet-Version: 0.7.5
 MIDlet-Vendor: nnproject
+MIDlet-Icon: /2.png
 MicroEdition-Configuration: CLDC-1.0
-MIDlet-1: Jch,,JChMIDlet
+MIDlet-1: Jch,/2.png,JChMIDlet
 MIDlet-Name: Jch
 MicroEdition-Profile: MIDP-2.0
 MIDlet-Jar-URL: Jch.jar
+Nokia-Scalable-Icon: /2.svg
+Nokia-Scalable-Icon-MIDlet-1: /2.svg
