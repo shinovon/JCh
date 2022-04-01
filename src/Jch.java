@@ -6,6 +6,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Random;
 import java.util.Vector;
 
 import javax.microedition.io.Connector;
@@ -40,9 +41,6 @@ import json.NullEquivalent;
 import tidy.Tidy;
 
 public class Jch implements CommandListener, ItemCommandListener, ItemStateListener, Runnable {
-	public static String platform;
-	private static String version;
-	private static String cookie;
 	
 	private static final String aboutText =
 			  "<h1>JCh</h1><br>"
@@ -148,9 +146,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static String postThread;
 	private static String postBoard;
 	private static String currentPost;
-	//private int postingFileBtnIdx;
 	private static String captchaId;
+	
 	private static int postError;
+	private static int postFilesCount;
+	private static Vector postFiles;
+	//private int postingFileBtnIdx;
 
 	private static boolean running = true;
 	
@@ -186,8 +187,17 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static boolean time2ch;
 	private static boolean filePreview = true;
 	private static boolean directFile;
-	
+
+	public static String platform;
 	private static String useragent;
+	private static String version;
+	
+	private static Hashtable cookies;
+	private static String cookiesStr;
+
+	private static Vector postFileItems;
+
+	private static boolean directPost;
 	
 	private int func = 0;
 	
@@ -250,9 +260,26 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			RecordStore r = RecordStore.openRecordStore("jchcookie", false);
 			byte[] b = r.getRecord(1);
 			r.closeRecordStore();
-			cookie = new String(b);
+			cookies = new Hashtable();
+			String str = new String(b);
+			int index = str.indexOf(';');
+			boolean n = true;
+			while (n) {
+				if (index == -1) {
+					n = false;
+					index = str.length();
+				}
+				String token = str.substring(0, index).trim();
+				int index2 = token.indexOf('=');
+				cookies.put(token.substring(0, index2).trim(), token.substring(index2 + 1));
+				if (n) {
+					str = str.substring(index + 1);
+					index = str.indexOf(';');
+				}
+			}
 		} catch (Exception e) {
 		}
+		cookCookies();
 		Jch.inst = new Jch();
 		tidy = new Tidy();
 		mainFrm = new Form("Jch - Главная");
@@ -449,11 +476,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				try {
 					RecordStore r = RecordStore.openRecordStore(CONFIG_RECORD_NAME, true);
 					JSONObject j = new JSONObject();
+					String q = "\"";
 					j.put("direct", new Boolean(direct2ch));
-					j.put("instance", instanceUrl);
-					j.put("apiproxy", apiProxyUrl);
-					j.put("previewproxy", previewProxyUrl);
-					j.put("fileproxy", fileProxyUrl);
+					j.put("instance", q.concat(instanceUrl).concat(q));
+					j.put("apiproxy", q.concat(apiProxyUrl).concat(q));
+					j.put("previewproxy", q.concat(previewProxyUrl).concat(q));
+					j.put("fileproxy", q.concat(fileProxyUrl).concat(q));
 					j.put("time2ch", new Boolean(time2ch));
 					j.put("maxposts", new Integer(maxPostsCount));
 					j.put("filepreview", new Boolean(filePreview));
@@ -578,25 +606,13 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			//captchaFrm.addCommand(backCmd);
 			captchaFrm.setTitle("Jch - Отправка...");
 			captchaFrm.append("Отправка...\n");
-			String cid = /*captchaIdField.getString()*/ captchaId;
-			String ckey = captchaField.getString();
-			String subj = postSubjectField.getString();
-			String comm = postTextField.getString();
-			String content = "task=post"
-							+ "&board=" + postBoard
-							+ "&thread=" + postThread
-							+ "&captcha_type=2chcaptcha"
-							+ (subj != null && subj.length() > 0 ? "&subject=" + encodeUrl(subj) : "")
-							+ (comm != null && comm.length() > 0 ? "&comment=" + encodeUrl(comm) : "")
-							+ "&2chcaptcha_id=" + cid
-							+ "&2chcaptcha_value=" + ckey
-							;
+			
 			//captchaFrm.append(content);
 			try {
 				if(apiProxyUrl == null || apiProxyUrl.length() < 2 || apiProxyUrl.endsWith("=")) {
 					apiProxyUrl = DEFAULT_PROXY_URL;
 				}
-				byte[] b = post(apiProxyUrl + "?post=true", content);
+				byte[] b = post(postFilesCount > 0);
 				String s = null;
 				try {
 					s = new String(b, "UTF-8");
@@ -612,6 +628,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				String tar = j.getString("Target", null);
 				String reason = j.getString("Reason", null);
 				postError = error;
+				captchaField = null;
 				captchaFrm.deleteAll();
 				if(error != 0) {
 					captchaFrm.append("Ошибка: " + error + "\nПричина: " + reason);
@@ -696,6 +713,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	private static void generateCaptcha() throws Exception {
+		captchaFrm.setTitle("Jch - Ввод капчи");
 		result = getObject(getString(apiProxyUrl + "?u=https://2ch.life/api/captcha/2chcaptcha/id"));
 		captchaId = ((JSONObject) result).getString("id");
 		//String input = ((JSONObject) result).getString("input");
@@ -790,6 +808,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		s.setItemCommandListener(inst);
 		/*postingFileBtnIdx = */postingFrm.append(s);
 		display(postingFrm);
+		postFiles = new Vector();
+		postFileItems = new Vector();
 	}
 
 	// отчистка всего говна от тредов и "хтмл парса"
@@ -825,7 +845,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			// открытие файла
 			String path = (String) files.get(item);
 			if(path != null) {
-				//TODO: передача куков для юзеркода
+				//TODO: передача куков для юзеркода либо скачивание
 				try {
 					if(midlet.platformRequest(prepareUrl(path, directFile ? null : fileProxyUrl, instanceUrl))) {
 						//notifyDestroyed();
@@ -985,6 +1005,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			t.addCommand(backCmd);
 			t.setCommandListener(inst);
 			display(t);
+		} else if(c == postAddFileItemCmd) {
+			
 		}
 	}
 	
@@ -1739,8 +1761,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		ByteArrayOutputStream o = null;
 		try {
 			hc.setRequestMethod("GET");
-			if(cookie != null) {
-				hc.setRequestProperty("Cookie", cookie);
+			if(cookiesStr != null) {
+				hc.setRequestProperty("Cookie", cookiesStr);
 			}
 			//hc.setRequestProperty("Accept-Encoding", "identity");
 			int r = hc.getResponseCode();
@@ -1756,8 +1778,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				hc.close();
 				hc = (HttpConnection) open(redir, Connector.READ);
 				hc.setRequestMethod("GET");
-				if(cookie != null) {
-					hc.setRequestProperty("Cookie", cookie);
+				if(cookiesStr != null) {
+					hc.setRequestProperty("Cookie", cookiesStr);
 				}
 				if(redirects++ > 3) {
 					throw new IOException("Too many redirects!");
@@ -1806,76 +1828,177 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static void addCookie(String s) {
 		String v = s;
 		if(s.indexOf(';') != -1) {
-		String[] f = split(s, ';');
-		v = f[0];
-		if(v.startsWith(" ")) v = s.substring(1);
+			v = s.substring(0, s.indexOf(';'));
 		}
 		System.out.println("addCookie " + s);
-		if(cookie == null) {
-			cookie = v;
-		} else {
-			cookie += "; " + v;
+		if(s.indexOf('=') == -1)
+			return;
+		if(cookies == null)
+			cookies = new Hashtable();
+		int i = v.indexOf(v.indexOf('='));
+		cookies.put(v.substring(0, i).trim(), v.substring(i + 1));
+	}
+	
+	// Приготовить печенья
+	private static void cookCookies() {
+		if(cookies == null) {
+			cookiesStr = "";
+			return;
+		}
+		StringBuffer sb = new StringBuffer();
+		Enumeration en = cookies.keys();
+		while (true) {
+			Object k = en.nextElement();
+			sb.append(k.toString()).append("=").append(cookies.get(k).toString());
+			if (!en.hasMoreElements()) {
+				cookiesStr = sb.deleteCharAt(sb.length()-1).toString();
+				return;
+			}
+			sb.append("; ");
 		}
 	}
 	
 	private static void saveCookies() {
+		cookCookies();
 		try {
 			RecordStore.deleteRecordStore("jchcookie");
 		} catch (Throwable e) {
 		}
 		try {
 			RecordStore r = RecordStore.openRecordStore("jchcookie", true);
-			byte[] b = cookie.getBytes();
+			byte[] b = cookiesStr.getBytes();
 			r.addRecord(b, 0, b.length);
 			r.closeRecordStore();
 		} catch (Exception e) {
 		}
 	}
-
+	private static final byte[] TWO_DASHES = {0x2d, 0x2d};
+	private static final byte[] NEW_LINE = {0x0d, 0x0a};
 	// пост для постинга
-	public static byte[] post(String url, String content) throws IOException {
+	public static byte[] post(boolean files) throws Exception {
 		//System.out.println("POST " + url);
 		//System.out.println(content);
-		HttpConnection hc = (HttpConnection) open(url, Connector.READ_WRITE);
+		String cid = /*captchaIdField.getString()*/ captchaId;
+		String ckey = captchaField.getString();
+		String subj = postSubjectField.getString();
+		String comm = postTextField.getString();
+		HttpConnection hc = (HttpConnection) open(directPost ? "https://2ch.life/makaba/posting.fcgi" : apiProxyUrl + "?post=true", Connector.READ_WRITE);
 
 		InputStream is = null;
 		OutputStream os = null;
 		ByteArrayOutputStream o = null;
 		try {
 			hc.setRequestMethod("POST");
-			if(cookie != null) {
-				hc.setRequestProperty("Cookie", cookie);
+			if(cookiesStr != null) {
+				hc.setRequestProperty("Cookie", cookiesStr);
 			}
 			//hc.setRequestProperty("Accept-Encoding", "identity");
-			byte[] b = content.getBytes("UTF-8");
-			int l = b.length;
-			hc.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-			hc.setRequestProperty("Content-Length", "" + l);
-			os = hc.openOutputStream();
-			os.write(b);
-			os.close();
+			if(!files) {
+				String content = "task=post"
+								+ "&board=" + postBoard
+								+ "&thread=" + postThread
+								+ "&captcha_type=2chcaptcha"
+								+ (subj != null && subj.length() > 0 ? "&subject=" + encodeUrl(subj) : "")
+								+ (comm != null && comm.length() > 0 ? "&comment=" + encodeUrl(comm) : "")
+								+ "&2chcaptcha_id=" + cid
+								+ "&2chcaptcha_value=" + encodeUrl(ckey)
+								;
+
+				byte[] b = content.getBytes("UTF-8");
+				int l = b.length;
+				hc.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+				hc.setRequestProperty("Content-Length", i(l));
+				os = hc.openOutputStream();
+				os.write(b);
+				os.close();
+			} else {
+				Vector parts = new Vector();
+				// {isFile, name, value/filename[, file_location, contentType, contentLength]}
+				parts.addElement(new Object[] { FALSE, "board", postBoard});
+				parts.addElement(new Object[] { FALSE, "thread", postThread});
+				parts.addElement(new Object[] { FALSE, "captcha_type", "2chcaptcha"});
+				parts.addElement(new Object[] { FALSE, "2chcaptcha_id", cid});
+				parts.addElement(new Object[] { FALSE, "2chcaptcha_value", ckey});
+				if(subj.length() > 0)
+					parts.addElement(new Object[] { FALSE, "2subject", cid});
+				if(comm.length() > 0)
+					parts.addElement(new Object[] { FALSE, "comment", cid});
+				for(int i = 0; i < postFiles.size(); i++) {
+					Object[] f = (Object[]) postFiles.elementAt(i);
+					parts.addElement(new Object[] { TRUE, "formimages", f[0], f[1], f[2], f[3]});
+				}
+				StringBuffer sb = new StringBuffer();
+				Random rng = new Random();
+				for (int i = 0; i < 27; i++) {
+					sb.append('-');
+				}
+				for (int i = 0; i < 11; i++) {
+					sb.append(rng.nextInt(10));
+				}
+				String boundaryStr = sb.toString();
+				sb.setLength(0);
+				String charsetName = "UTF-8";
+				int contentLength = 0;
+				int boundaryLength = boundaryStr.length();
+				int dashesLength = TWO_DASHES.length;
+				int lineLength = NEW_LINE.length;
+				for(int i = 0; i < parts.size(); i++) {
+					Object[] part = (Object[]) parts.elementAt(i); 
+					boolean file = ((Boolean)part[0]).booleanValue();
+					contentLength += dashesLength + boundaryLength + lineLength;
+					contentLength += 39 + ((String)part[1]).getBytes(charsetName).length;
+					if (file) {
+						contentLength += 13 + ((String)part[2]).getBytes(charsetName).length;
+					}
+					contentLength += lineLength;
+					if (file) {
+						contentLength += 14 + ((String)part[4]).getBytes("ISO-8859-1").length + lineLength;
+					}
+					contentLength += lineLength + (file ? ((Integer)part[5]).intValue() : ((String)part[2]).getBytes(charsetName).length) + lineLength;
+				}
+				contentLength += dashesLength + boundaryLength + dashesLength + lineLength;
+				hc.setRequestProperty("Connection", "keep-alive");
+				hc.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundaryStr);
+				hc.setRequestProperty("Content-Length", i(contentLength));
+				os = hc.openOutputStream();
+				byte[] boundary = boundaryStr.getBytes("ISO-8859-1");
+				for(int i = 0; i < parts.size(); i++) {
+					Object[] part = (Object[]) parts.elementAt(i); 
+					boolean file = ((Boolean)part[0]).booleanValue();
+					os.write(TWO_DASHES);
+					os.write(boundary);
+					os.write(NEW_LINE);
+					os.write("Content-Disposition: form-data; name=\"".getBytes("ISO-8859-1"));
+					os.write(((String)part[1]).getBytes(charsetName));
+					os.write('"');
+					if (file) {
+						os.write("; filename=\"".getBytes("ISO-8859-1"));
+						os.write(((String)part[2]).getBytes(charsetName));
+						os.write('"');
+					}
+					os.write(NEW_LINE);
+					if (file) {
+						os.write(("Content-Type: ".concat(((String)part[4]))).getBytes("ISO-8859-1"));
+						os.write(NEW_LINE);
+					}
+					os.write(NEW_LINE);
+					if(file) {
+						
+					} else {
+						os.write(((String)part[2]).getBytes(charsetName));
+					}
+					os.write(NEW_LINE);
+				}
+				os.write(TWO_DASHES);
+				os.write(boundary);
+				os.write(TWO_DASHES);
+				os.write(NEW_LINE);
+				os.flush();
+				os.close();
+			}
 			//os.flush();
 			int r = hc.getResponseCode();
-			if(r >= 400) throw new IOException(r + " " + hc.getResponseMessage());
-			int redirects = 0;
-			while (r == 301 || r == 302 || r == 303) {
-				String redir = hc.getHeaderField("Location");
-				if (redir.startsWith("/")) {
-					String tmp = url.substring(url.indexOf("//") + 2);
-					String host = url.substring(0, url.indexOf("//")) + "//" + tmp.substring(0, tmp.indexOf("/"));
-					redir = host + redir;
-				}
-				hc.close();
-				//System.out.println("redirect: " + r + " " + redir);
-				hc = (HttpConnection) open(redir, Connector.READ);
-				hc.setRequestMethod("GET");
-				if(cookie != null) {
-					hc.setRequestProperty("Cookie", cookie);
-				}
-				if(redirects++ > 3) {
-					throw new IOException("Too many redirects!");
-				}
-			}
+			if(r >= 300) throw new IOException(r + " " + hc.getResponseMessage());
 			//if (hc.getHeaderField("Set-Cookie") != null) {
 			/*
 				for (int i = 0;; i++) {
@@ -1899,7 +2022,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 						}
 					}
 				}*/
-			boolean cookies = false;
+			boolean hasCookies = false;
 			for (int i = 0;; i++) {
 				String k = hc.getHeaderFieldKey(i);
 				if (k == null)
@@ -1909,7 +2032,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				if(k.equalsIgnoreCase("set-cookie")) {
 					//if(v.indexOf("code_auth=") != -1) {
 					addCookie(v);
-					cookies = true;
+					hasCookies = true;
 						//}
 				}
 			}
@@ -1921,12 +2044,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			while ((len = is.read(buf)) != -1) {
                o.write(buf, 0, len);
 			}
-			if(cookies)
+			if(hasCookies)
 				saveCookies();
 			return o.toByteArray();
-		} catch (NullPointerException e) {
-			e.printStackTrace();
-			throw new IOException(e.toString());
 		} finally {
 			if (is != null)
 				is.close();
