@@ -1,6 +1,5 @@
 package json;
 
-
 import java.util.Enumeration;
 import java.util.Hashtable;
 
@@ -107,12 +106,8 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public Double getNumber(String name) throws Exception {
-		return Jch.getDouble(get(name));
-	}
-	
 	public int getInt(String name) throws Exception {
-		return getNumber(name).intValue();
+		return (int) Jch.getLong(get(name)).longValue();
 	}
 	
 	public int getInt(String name, int def) {
@@ -125,7 +120,7 @@ public class JSONObject extends AbstractJSON {
 	}
 	
 	public long getLong(String name) throws Exception {
-		return getNumber(name).longValue();
+		return Jch.getLong(get(name)).longValue();
 	}
 
 	public long getLong(String name, long def) {
@@ -138,7 +133,7 @@ public class JSONObject extends AbstractJSON {
 	}
 	
 	public double getDouble(String name) throws Exception {
-		return getNumber(name).doubleValue();
+		return Jch.getDouble(get(name)).doubleValue();
 	}
 
 	public double getDouble(String name, double def) {
@@ -153,11 +148,11 @@ public class JSONObject extends AbstractJSON {
 	public boolean getBoolean(String name) throws Exception {
 		Object o = get(name);
 		if(o instanceof Boolean) return ((Boolean) o).booleanValue();
-		if(o instanceof Integer) return ((Integer) o).intValue() > 0;
 		if(o instanceof String) {
 			String s = (String) o;
-			if(s.equals("1") || s.equals("true") || s.equals("TRUE")) return true;
-			else if(s.equals("0") || s.equals("false") || s.equals("FALSE") || s.equals("-1")) return false;
+			s = s.toLowerCase();
+			if(s.equals("true")) return true;
+			if(s.equals("false")) return false;
 		}
 		throw new Exception("JSON: Not boolean: " + o);
 	}
@@ -175,12 +170,28 @@ public class JSONObject extends AbstractJSON {
 		return Jch.isNull(get(name));
 	}
 
+	public void put(String name, String s) {
+		table.put(name, "\"".concat(s).concat("\""));
+	}
+	
+	public void put(String name, Object obj) throws Exception {
+		table.put(name, Jch.getJSON(obj));
+	}
+	
+	public void clear() {
+		table.clear();
+	}
+	
+	public int size() {
+		return table.size();
+	}
+
 	public String build() {
 		int l = size();
 		if (l == 0)
 			return "{}";
 		String s = "{";
-		java.util.Enumeration elements = table.keys();
+		Enumeration elements = table.keys();
 		while (true) {
 			String k = elements.nextElement().toString();
 			s += "\"" + k + "\":";
@@ -195,7 +206,7 @@ public class JSONObject extends AbstractJSON {
 			if (v instanceof JSONObject) {
 				s += ((JSONObject) v).build();
 			} else if (v instanceof JSONArray) {
-				s += "[]";
+				s += "[]"; // edited
 			} else if (v instanceof String) {
 				s += "\"" + Jch.escape_utf8((String) v) + "\"";
 			} else s += v.toString();
@@ -204,18 +215,6 @@ public class JSONObject extends AbstractJSON {
 			}
 			s += ",";
 		}
-	}
-	
-	public void put(String name, Object obj) throws Exception {
-		table.put(name, Jch.getJSON(obj));
-	}
-	
-	public void clear() {
-		table.clear();
-	}
-	
-	public int size() {
-		return table.size();
 	}
 
 	public Enumeration keys() {

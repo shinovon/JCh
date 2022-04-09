@@ -476,12 +476,11 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				try {
 					RecordStore r = RecordStore.openRecordStore(CONFIG_RECORD_NAME, true);
 					JSONObject j = new JSONObject();
-					String q = "\"";
 					j.put("direct", new Boolean(direct2ch));
-					j.put("instance", q.concat(instanceUrl).concat(q));
-					j.put("apiproxy", q.concat(apiProxyUrl).concat(q));
-					j.put("previewproxy", q.concat(previewProxyUrl).concat(q));
-					j.put("fileproxy", q.concat(fileProxyUrl).concat(q));
+					j.put("instance", instanceUrl);
+					j.put("apiproxy", apiProxyUrl);
+					j.put("previewproxy", previewProxyUrl);
+					j.put("fileproxy", fileProxyUrl);
 					j.put("time2ch", new Boolean(time2ch));
 					j.put("maxposts", new Integer(maxPostsCount));
 					j.put("filepreview", new Boolean(filePreview));
@@ -2504,24 +2503,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 						}
 					}
 				}
-				/*
-				try {
-					return Integer.valueOf(str);
-				} catch (Exception e) {
-					try {
-						return new Long(Long.parseLong(str));
-					} catch (Exception e2) {
-						try {
-							return Double.valueOf(str);
-						} catch (Exception e3) {
-						}
-					}
-				}*/
-				/*
-				if(str.length() == 0 || str.equals("") || str.equals(" "))
-					throw new Exception("JSON: Empty value");
-				throw new Exception("JSON: Unknown value: " + str);
-				*/
 				return str;
 			} else {
 				// Parse json object or array
@@ -2567,12 +2548,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 
 					if (object && key == null) {
 						key = str.substring(i, splIndex);
-						//while(n.startsWith("\r") || n.startsWith("\n")) {
-						//	n = n.substring(1);
-						//}
-						//while(n.endsWith("\r") || n.endsWith("\n") || n.endsWith(" ")) {
-						//	n = n.substring(0, n.length() - 1);
-						//}
 						key = key.substring(1, key.length() - 1);
 						nextDelimiter = ',';
 					} else {
@@ -2654,6 +2629,23 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			//	return new Double(((Float)o).doubleValue());
 			else if (o instanceof String)
 				return Double.valueOf((String) o);
+		} catch (Throwable e) {
+		}
+		throw new Exception("JSON: Value cast failed: " + o);
+	}
+
+	public static Long getLong(Object o) throws Exception {
+		try {
+			if (o instanceof Short)
+				return new Long(((Short)o).shortValue());
+			else if (o instanceof Integer)
+				return new Long(((Integer)o).longValue());
+			else if (o instanceof Long)
+				return (Long) o;
+			else if (o instanceof Double)
+				return new Long(((Double)o).longValue());
+			else if (o instanceof String)
+				return new Long(Long.parseLong((String) o));
 		} catch (Throwable e) {
 		}
 		throw new Exception("JSON: Value cast failed: " + o);

@@ -1,6 +1,5 @@
 package json;
 
-
 import java.util.Enumeration;
 import java.util.Vector;
 
@@ -85,12 +84,8 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public Double getNumber(int index) throws Exception {
-		return Jch.getDouble(get(index));
-	}
-	
 	public int getInt(int index) throws Exception {
-		return getNumber(index).intValue();
+		return (int) Jch.getLong(get(index)).longValue();
 	}
 	
 	public int getInt(int index, int def) {
@@ -102,7 +97,7 @@ public class JSONArray extends AbstractJSON {
 	}
 	
 	public long getLong(int index) throws Exception {
-		return getNumber(index).longValue();
+		return Jch.getLong(get(index)).longValue();
 	}
 
 	public long getLong(int index, long def) {
@@ -114,9 +109,9 @@ public class JSONArray extends AbstractJSON {
 	}
 	
 	public double getDouble(int index) throws Exception {
-		return getNumber(index).doubleValue();
+		return Jch.getDouble(get(index)).doubleValue();
 	}
-
+	
 	public double getDouble(int index, double def) {
 		try {
 			return getDouble(index);
@@ -128,11 +123,11 @@ public class JSONArray extends AbstractJSON {
 	public boolean getBoolean(int index) throws Exception {
 		Object o = get(index);
 		if(o instanceof Boolean) return ((Boolean) o).booleanValue();
-		if(o instanceof Integer) return ((Integer) o).intValue() > 0;
 		if(o instanceof String) {
 			String s = (String) o;
-			if(s.equals("1") || s.equals("true") || s.equals("TRUE")) return true;
-			else if(s.equals("0") || s.equals("false") || s.equals("FALSE") || s.equals("-1")) return false;
+			s = s.toLowerCase();
+			if(s.equals("true")) return true;
+			if(s.equals("false")) return false;
 		}
 		throw new Exception("JSON: Not boolean: " + o + " (" + index + ")");
 	}
