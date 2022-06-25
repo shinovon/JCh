@@ -287,7 +287,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		mainFrm.addCommand(exitCmd);
 		mainFrm.addCommand(aboutCmd);
 		mainFrm.addCommand(settingsCmd);
-		mainFrm.append(boardField = new TextField("Доска", "", 8, TextField.ANY));
+		mainFrm.append(boardField = new TextField("Доска", "", 5, TextField.ANY));
+		boardField.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_2);
 		boardField.addCommand(boardFieldCmd);
 		boardField.setItemCommandListener(inst);
 		StringItem btn = new StringItem(null, "Ввод", StringItem.BUTTON);
@@ -295,12 +296,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		btn.setItemCommandListener(inst);
 		mainFrm.append(btn);
 		StringItem btn2 = new StringItem(null, "Доски", StringItem.BUTTON);
-		btn2.setLayout(Item.LAYOUT_EXPAND);
+		btn2.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_2);
 		btn2.setDefaultCommand(boardsItemCmd);
 		btn2.setItemCommandListener(inst);
 		mainFrm.append(btn2);
 		StringItem btn3 = new StringItem(null, "Открыть пост по ссылке", StringItem.BUTTON);
-		btn3.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_BEFORE);
+		btn3.setLayout(Item.LAYOUT_EXPAND | Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_2);
 		btn3.setDefaultCommand(openByLinkItemCmd);
 		btn3.setItemCommandListener(inst);
 		mainFrm.append(btn3);
@@ -620,7 +621,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				}
 				b = null;
 				captchaFrm.setTitle("Jch - Отправлено");
-				//System.out.println(s);
+				System.out.println(s);
 				JSONObject j = getObject(s);
 				int error = j.getInt("Error", 0);
 				String num = j.getString("Num", null);
@@ -1906,7 +1907,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				byte[] b = content.getBytes("UTF-8");
 				int l = b.length;
 				hc.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-				hc.setRequestProperty("Content-Length", i(l));
+				hc.setRequestProperty("Content-length", i(l));
 				os = hc.openOutputStream();
 				os.write(b);
 				os.close();
@@ -1919,7 +1920,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				parts.addElement(new Object[] { FALSE, "2chcaptcha_id", cid});
 				parts.addElement(new Object[] { FALSE, "2chcaptcha_value", ckey});
 				if(subj.length() > 0)
-					parts.addElement(new Object[] { FALSE, "2subject", cid});
+					parts.addElement(new Object[] { FALSE, "subject", cid});
 				if(comm.length() > 0)
 					parts.addElement(new Object[] { FALSE, "comment", cid});
 				for(int i = 0; i < postFiles.size(); i++) {
@@ -1958,7 +1959,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				contentLength += dashesLength + boundaryLength + dashesLength + lineLength;
 				hc.setRequestProperty("Connection", "keep-alive");
 				hc.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundaryStr);
-				hc.setRequestProperty("Content-Length", i(contentLength));
+				hc.setRequestProperty("Content-length", i(contentLength));
 				os = hc.openOutputStream();
 				byte[] boundary = boundaryStr.getBytes("ISO-8859-1");
 				for(int i = 0; i < parts.size(); i++) {
@@ -2060,7 +2061,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		byte[] b = get(url);
 		try {
 			return new String(b, "UTF-8");
-		} catch (Exception e) {
+		} catch (Throwable e) {
 			return new String(b);
 		}
 	}
