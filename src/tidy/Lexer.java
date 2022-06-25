@@ -208,7 +208,7 @@ public class Lexer {
     
     public static byte[] getBytes(String str) {
         try {
-            return str.getBytes("UTF8");
+            return str.getBytes("UTF-8");
         } catch (java.io.UnsupportedEncodingException e) {
             throw new Error("string to UTF-8 conversion failed: " + e.getMessage());
         }
@@ -216,7 +216,7 @@ public class Lexer {
 
     public static String getString(byte[] bytes, int offset, int length) {
         try {
-            return new String(bytes, offset, length, "UTF8");
+            return new String(bytes, offset, length, "UTF-8");
         } catch (java.io.UnsupportedEncodingException e) {
             throw new Error("UTF-8 to string conversion failed: " + e.getMessage());
         }
