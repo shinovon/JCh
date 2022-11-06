@@ -89,6 +89,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Command postThreadCmd = new Command("Запостить тред", Command.SCREEN, 0);
 	private static Command postCommentCmd = new Command("Ответить в тред", Command.SCREEN, 0);
 	private static Command threadGotoStartCmd = new Command("Перейти к началу треда", Command.SCREEN, 0);
+	private static Command nextThreadsItemCmd = new Command("След. треды", Command.ITEM, 0);
+	private static Command prevThreadsItemCmd = new Command("Пред. треды", Command.ITEM, 0);
 	private static Command aboutCmd = new Command("О программе", Command.SCREEN, 0);
 	private static Command settingsCmd = new Command("Настройки", Command.SCREEN, 0);
 	//private static Command agreeCmd = new Command("Да", Command.OK, 0);
@@ -174,6 +176,10 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static int postsCount;
 	private static int currentIndex;
 	
+	private static JSONArray cachedThreads;
+	private static int threadsCount;
+	private static int catalogIndex;
+	
 	private static String query;
 
 	// Settings
@@ -187,6 +193,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static boolean time2ch;
 	private static boolean filePreview = true;
 	private static boolean directFile;
+	private static boolean simpleThreads = false;
 
 	public static String platform;
 	private static String useragent;
@@ -325,6 +332,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				maxPostsCount = j.getInt("maxposts", maxPostsCount);
 				filePreview = j.getBoolean("filepreview", filePreview);
 				directFile = j.getBoolean("directfile", directFile);
+				simpleThreads = j.getBoolean("simplethreads", simpleThreads);
 			} catch (Exception e) {
 			}
 		}
@@ -423,9 +431,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	private static void _commandAction(Command c, Displayable d) {
-		if(c == exitCmd)
+		if(c == exitCmd) {
 			midlet.destroyApp(false);
-		else if(c == backCmd) {
+		} else if(c == backCmd) {
 			if(d == boardFrm) {
 				display.setCurrent(mainFrm);
 				boardFrm.deleteAll();
@@ -464,6 +472,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				directFile = setChoice.isSelected(1);
 				time2ch = setChoice.isSelected(2);
 				filePreview = setChoice.isSelected(3);
+				simpleThreads = setChoice.isSelected(4);
 				instanceUrl = setInstanceField.getString();
 				apiProxyUrl = setApiProxyField.getString();
 				previewProxyUrl = setPreviewProxyField.getString();
@@ -486,6 +495,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					j.put("maxposts", new Integer(maxPostsCount));
 					j.put("filepreview", new Boolean(filePreview));
 					j.put("directfile", new Boolean(directFile));
+					j.put("simplethreads", new Boolean(simpleThreads));
 					byte[] b = j.build().getBytes("UTF-8");
 					
 					r.addRecord(b, 0, b.length);
@@ -565,8 +575,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				settingsFrm.setItemStateListener(inst);
 				setInstanceField = new TextField("Инстанс двача", instanceUrl, 100, TextField.URL);
 				settingsFrm.append(setInstanceField);
-				setChoice = new ChoiceGroup("", Choice.MULTIPLE, new String[] { "Прямое подключение", "Открывать файлы напрямую", "Дата поста с сайта", "Отображение превью" }, null);
-				setChoice.setSelectedFlags(new boolean[] { direct2ch, directFile, time2ch, filePreview });
+				setChoice = new ChoiceGroup("", Choice.MULTIPLE, new String[] { "Прямое подключение", "Открывать файлы напрямую", "Дата поста с сайта", "Отображение превью", "Простой каталог" }, null);
+				setChoice.setSelectedFlags(new boolean[] { direct2ch, directFile, time2ch, filePreview, simpleThreads });
 				settingsFrm.append(setChoice);
 				setMaxPostsGauge = new Gauge("Кол-во постов на странице", true, 30, maxPostsCount);
 				settingsFrm.append(setMaxPostsGauge);
@@ -777,6 +787,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			directFile = setChoice.isSelected(1);
 			time2ch = setChoice.isSelected(2);
 			filePreview = setChoice.isSelected(3);
+			simpleThreads = setChoice.isSelected(4);
 			int c = direct2ch ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL;
 			setApiProxyField.setConstraints(c);
 			setPreviewProxyField.setConstraints(c);
@@ -819,8 +830,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		spoilers.clear();
 		comments.clear();
 		thumbsToLoad.removeAllElements();
-		currentIndex = 0;
-		postsCount = 0;
 	}
 
 	public void commandAction(Command c, Item item) {
@@ -836,9 +845,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				board(((TextField)item).getString());
 			else if(item instanceof StringItem)
 				board(split(((StringItem)item).getText(), '/')[1]);
-		} else if(c == openThreadCmd && item.getLabel().startsWith("#")) {
+		} else if(c == openThreadCmd) {
 			// открытие треда
-			String s = item.getLabel().substring(1);
+			String s = item.getLabel() == null ? ((StringItem)item).getText().substring(1) : item.getLabel().substring(1);
 			//s = s.substring(0, s.indexOf(" "));
 			openThread(s);
 		} else if(c == fileImgItemOpenCmd) {
@@ -948,31 +957,36 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				//s.removeCommand(postSpoilerItemCmd);
 			}
 		} else if(c == nextPostsItemCmd) {
+			clearThreadData();
+			currentIndex += maxPostsCount;
 			if(searchFrm != null) {
-				clearThreadData();
 				searchFrm.deleteAll();
-				currentIndex += maxPostsCount;
-				parsePosts(searchFrm, cachedPosts, true, true);
+				parsePosts(searchFrm, cachedPosts, true, true, false);
 			} else {
-				clearThreadData();
 				threadFrm.deleteAll();
-				currentIndex += maxPostsCount;
-				parsePosts(threadFrm, cachedPosts, true, false);
+				parsePosts(threadFrm, cachedPosts, true, false, false);
 			}
 		} else if(c == prevPostsItemCmd) {
+			clearThreadData();
+			currentIndex -= maxPostsCount;
+			if(currentIndex < 0) currentIndex = 0;
 			if(searchFrm != null) {
-				clearThreadData();
 				searchFrm.deleteAll();
-				currentIndex -= maxPostsCount;
-				if(currentIndex < 0) currentIndex = 0;
-				parsePosts(searchFrm, cachedPosts, true, true);
+				parsePosts(searchFrm, cachedPosts, true, true, false);
 			} else {
-				clearThreadData();
 				threadFrm.deleteAll();
-				currentIndex -= maxPostsCount;
-				if(currentIndex < 0) currentIndex = 0;
-				parsePosts(threadFrm, cachedPosts, true, false);
+				parsePosts(threadFrm, cachedPosts, true, false, false);
 			}
+		} else if(c == nextThreadsItemCmd) {
+			clearThreadData();
+			catalogIndex += maxPostsCount;
+			boardFrm.deleteAll();
+			parsePosts(boardFrm, cachedThreads, true, false, true);
+		} else if(c == prevThreadsItemCmd) {
+			clearThreadData();
+			catalogIndex -= maxPostsCount;
+			boardFrm.deleteAll();
+			parsePosts(boardFrm, cachedThreads, true, false, true);
 		} else if(c == boardsItemCmd) {
 			if(boardsFrm != null) {
 				display(boardsFrm);
@@ -1028,7 +1042,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				searchFrm.append(s);
 				return;
 			}
-			parsePosts(searchFrm, posts, false, true);
+			parsePosts(searchFrm, posts, false, true, false);
 			System.gc();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -1061,8 +1075,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		currentBoard = bd;
 		currentPost = post;
 		postsCount = -1;
+		currentIndex = 0;
 		(lastThread = new Thread(new Jch(3))).start();
-		
 	}
 	
 	private static void loadThread(final String id, final String bd, final String post) {
@@ -1131,7 +1145,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				}
 				if(threadFrm != null) removeLoadingLabel(threadFrm);
 				else return;
-				parsePosts(threadFrm, posts, false, false);
+				parsePosts(threadFrm, posts, false, false, false);
 			} catch (InterruptedException e) {
 			} catch (Throwable e) {
 				e.printStackTrace();
@@ -1148,17 +1162,24 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 
 	// оффсет это если прокручено
-	private static void parsePosts(Form f, JSONArray posts, boolean offset, boolean search) {
+	private static void parsePosts(Form f, JSONArray posts, boolean offset, boolean search, boolean catalog) {
 		// внезапная очистка
 		System.gc();
 		int l = posts.size();
-		if(offset && currentIndex != 0) {
+		int count = catalog ? threadsCount : postsCount;
+		int idx = catalog ? catalogIndex : currentIndex;
+		if(offset && idx != 0) {
 			StringItem s = new StringItem(null, "");
 			f.append(s);
-			StringItem btn = new StringItem(null, "Предыдущие посты");
+			StringItem btn = new StringItem(null, catalog ? "Предыдущие треды" : "Предыдущие посты");
 			btn.setLayout(Item.LAYOUT_CENTER);
-			btn.addCommand(prevPostsItemCmd);
-			btn.setDefaultCommand(prevPostsItemCmd);
+			if(catalog) {
+				btn.addCommand(prevThreadsItemCmd);
+				btn.setDefaultCommand(prevThreadsItemCmd);
+			} else {
+				btn.addCommand(prevPostsItemCmd);
+				btn.setDefaultCommand(prevPostsItemCmd);
+			}
 			btn.setItemCommandListener(inst);
 			f.append(btn);
 			if(platform.indexOf("S60") > -1 && platform.indexOf("=3.2") == -1)
@@ -1173,44 +1194,59 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			} catch (InterruptedException e) {
 				return;
 			}
-			if(i + currentIndex >= l || (postsCount > 0 ? i + currentIndex >= postsCount : false)) {
+			if(i + idx >= l || (count > 0 ? i + idx >= count : false)) {
 				//System.out.println("limit: " + (i + currentIndex) + " " + postsCount);
 				return;
 			}
 			if(i >= maxPostsCount) {
 				if(!offset) {
-					currentIndex = 0;
-					cachedPosts = posts;
+					if(catalog) {
+						catalogIndex = 0;
+						cachedThreads = posts;
+					} else {
+						currentIndex = 0;
+						cachedPosts = posts;
+					}
 				}
-				StringItem btn = new StringItem(null, "Следующие посты");
+				StringItem btn = new StringItem(null, catalog ? "Следующие треды" : "Следующие посты");
 				btn.setLayout(Item.LAYOUT_CENTER);
-				btn.addCommand(nextPostsItemCmd);
-				btn.setDefaultCommand(nextPostsItemCmd);
+				if(catalog) {
+					btn.addCommand(nextThreadsItemCmd);
+					btn.setDefaultCommand(nextThreadsItemCmd);
+				} else {
+					btn.addCommand(nextPostsItemCmd);
+					btn.setDefaultCommand(nextPostsItemCmd);
+				}
 				btn.setItemCommandListener(inst);
 				f.append(btn);
 				break;
 			}
 			try {
-				JSONObject post = posts.getObject(i + currentIndex);
+				JSONObject post = posts.getObject(i + idx);
 				JSONArray files = post.getNullableArray("files");
 				//System.out.println(post);
 				String num = post.getString("num", "");
 				//System.out.println(post.toString());
-				if(search) {
+				if(search || catalog) {
 					// заголовок поста для формы поиска
 					StringItem title = new StringItem(null, htmlText(post.getString("name", "")).concat("\n").concat(time2ch ? post.getString("date", "") : parsePostDate(post.getLong("timestamp", 0))));
 					title.setFont(smallBoldFont);
 					title.setLayout(Item.LAYOUT_NEWLINE_BEFORE | Item.LAYOUT_LEFT);
 					f.append(title);
-	
-					StringItem snum = new StringItem(null, " #".concat(num));
+					f.append(new Spacer(smallBoldFont.charWidth(' ')+2, smallBoldFont.getHeight()));
+					StringItem snum = new StringItem(null, "#".concat(num));
 					snum.setFont(smallBoldFont);
 					snum.setLayout(Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_LEFT);
 					f.append(snum);
-					snum.addCommand(postLinkItemCmd);
-					snum.setDefaultCommand(postLinkItemCmd);
+					if(search) {
+						snum.addCommand(postLinkItemCmd);
+						snum.setDefaultCommand(postLinkItemCmd);
+						searchLinks.put(snum, "/".concat(currentBoard).concat("/res/").concat(post.getString("parent", "")).concat(".html#").concat(num));
+					} else {
+						snum.addCommand(openThreadCmd);
+						snum.setDefaultCommand(openThreadCmd);
+					}
 					snum.setItemCommandListener(inst);
-					searchLinks.put(snum, "/".concat(currentBoard).concat("/res/").concat(post.getString("parent", "")).concat(".html#").concat(num));
 				} else {
 					StringItem title = new StringItem(null, "\n"
 							.concat(htmlText(post.getString("name", ""))).concat("\n")
@@ -1234,7 +1270,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					int fl = files.size();
 					for(int fi = 0; fi < fl && fi < 5; fi++) {
 						JSONObject file = files.getObject(fi);
-						String name = file.getString("displayname", file.getString("name", ""));
+						String name = catalog ? null : file.getString("displayname", file.getString("name", ""));
 						ImageItem fitem = new ImageItem(name, null, 0, name);
 						fitem.setLayout(Item.LAYOUT_NEWLINE_BEFORE);
 						fitem.addCommand(fileImgItemOpenCmd);
@@ -1471,7 +1507,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static void loadBoard(final String board) {
 		JSONObject j = null;
 		try {
-			getResult(board + "/threads.json");
+			getResult(board + (simpleThreads ? "/threads.json" : "/catalog.json"));
 			if(!(result instanceof JSONObject))
 				throw new RuntimeException("Result not object: " + result);
 			j = (JSONObject) result;
@@ -1481,19 +1517,25 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			if(th == null)
 				return;
 			j = null;
-			int l = th.size();
 			removeLoadingLabel(boardFrm);
-			for(int i = 0; i < l && i < 20; i++) {
-				JSONObject thread = th.getObject(i);
-				//System.out.println(thread);
-				StringItem s = new StringItem("#" + thread.getString("num", ""),
-						htmlText(thread.getString("subject", "")));
-				s.addCommand(openThreadCmd);
-				s.setDefaultCommand(openThreadCmd);
-				s.setItemCommandListener(inst);
-				boardFrm.append(s);
-				//boardFrm.append(text(comment) + "\n");
-				Thread.yield();
+			if(simpleThreads) {
+				int l = th.size();
+				for(int i = 0; i < l && i < 20; i++) {
+					JSONObject thread = th.getObject(i);
+					System.out.println(thread.format(0));
+					StringItem s = new StringItem("#" + thread.getString("num", ""),
+							htmlText(thread.getString("subject", "")));
+					s.addCommand(openThreadCmd);
+					s.setDefaultCommand(openThreadCmd);
+					s.setItemCommandListener(inst);
+					boardFrm.append(s);
+					//boardFrm.append(text(comment) + "\n");
+					Thread.yield();
+				}
+			} else {
+				threadsCount = -1;
+				catalogIndex = 0;
+				parsePosts(boardFrm, th, false, false, true);	
 			}
 			th = null;
 			System.gc();
@@ -1882,7 +1924,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		String ckey = captchaField.getString();
 		String subj = postSubjectField.getString();
 		String comm = postTextField.getString();
-		HttpConnection hc = (HttpConnection) open(directPost ? "https://2ch.life/makaba/posting.fcgi" : apiProxyUrl + "?post=true", Connector.READ_WRITE);
+		HttpConnection hc = (HttpConnection) open(directPost ? "https://2ch.life/user/posting" : apiProxyUrl + "?post=true", Connector.READ_WRITE);
 
 		InputStream is = null;
 		OutputStream os = null;
@@ -2113,7 +2155,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					prof = "MIDP-" + prof.substring(4);
 				}
 			}
-			String p1 = System.getProperty("om.symbian.default.to.suite.icon");
+			String p1 = System.getProperty("com.symbian.default.to.suite.icon");
 			if(p1 == null) p1 = System.getProperty("com.symbian.midp.serversocket.support");
 			if(osn != null) {
 				// check for Windows
@@ -2254,7 +2296,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		//	res += " " + java;
 		//}
 		//res += " Mozilla/5.0 (compatible)";
-		//System.out.println(res);
+		System.out.println(res);
 		return useragent = res;
 	}
 
