@@ -1426,6 +1426,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 							if(atr.getNamedItem("class") != null) {
 								cls = atr.getNamedItem("class").getNodeValue();
 							}
+							if(cls == null) continue;
 							if(cls.equals("u") || cls.equals("o")) {
 								fstyle |= Font.STYLE_UNDERLINED;
 							}
