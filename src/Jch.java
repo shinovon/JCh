@@ -396,14 +396,17 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				Thread.yield();
 			}
 			*/
-			getResult("boards.json");
+			addLoadingLabel(boardsFrm);
+			getResult("api/mobile/v2/boards");
 			//System.out.println(result);
-			if(!(result instanceof JSONObject))
-				return;
+			if(!(result instanceof JSONArray)) {
+				throw new RuntimeException("Result not array: " + result);
+			}
 			System.gc();
-			JSONArray boards = ((JSONObject)result).getArray("boards");
+			JSONArray boards = (JSONArray) result;
 			Enumeration en = boards.elements();
 			boards = null;
+			removeLoadingLabel(boardsFrm);
 			while(en.hasMoreElements()) {
 				JSONObject board = (JSONObject) en.nextElement();
 				String id = board.getNullableString("id");
@@ -1522,7 +1525,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				int l = th.size();
 				for(int i = 0; i < l && i < 20; i++) {
 					JSONObject thread = th.getObject(i);
-					System.out.println(thread.format(0));
 					StringItem s = new StringItem("#" + thread.getString("num", ""),
 							htmlText(thread.getString("subject", "")));
 					s.addCommand(openThreadCmd);
