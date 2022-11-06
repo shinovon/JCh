@@ -99,6 +99,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Command captchaConfirmCmd = new Command("Подтвердить", Command.OK, 0);
 	private static Command textOkCmd = new Command("Ок", Command.OK, 0);
 	private static Command linkOkCmd = new Command("Ок", Command.OK, 0);
+	private static Command importUsercodeCmd = new Command("Импортировать юзеркод", Command.SCREEN, 0);
 	
 	static Display display;
 	public static JChMIDlet midlet;
@@ -574,6 +575,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			if(settingsFrm == null) {
 				settingsFrm = new Form("Jch - Настройки");
 				settingsFrm.addCommand(backCmd);
+				settingsFrm.addCommand(importUsercodeCmd);
 				settingsFrm.setCommandListener(inst);
 				settingsFrm.setItemStateListener(inst);
 				setInstanceField = new TextField("Инстанс двача", instanceUrl, 100, TextField.URL);
@@ -715,6 +717,22 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			//System.out.println(tid);
 			//System.out.println(pid);
 			openThread(tid, brd, pid);
+		} else if(c == importUsercodeCmd) {
+			final TextBox t = new TextBox("Импорт юзеркода", "", 100, TextField.ANY);
+			t.addCommand(backCmd);
+			t.addCommand(textOkCmd);
+			t.setCommandListener(new CommandListener() {
+				public void commandAction(Command c, Displayable d) {
+					if(c == textOkCmd) {
+						if(cookies == null)
+							cookies = new Hashtable();
+						cookies.put("usercode_auth", t.getString());
+						saveCookies();
+					}
+					display(settingsFrm);
+				}
+			});
+			display(t);
 		}
 	}
 
@@ -779,7 +797,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		});
 		captchaFrm.append(s2);
 		*/
-		captchaFrm.append(captchaField = new TextField("Капча", "", 100, TextField.NUMERIC));
+		captchaFrm.append(captchaField = new TextField("Капча", "", 6, TextField.NUMERIC));
 		captchaFrm.addCommand(captchaConfirmCmd);
 		captchaFrm.setCommandListener(inst);
 	}
@@ -1879,7 +1897,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			return;
 		if(cookies == null)
 			cookies = new Hashtable();
-		int i = v.indexOf(v.indexOf('='));
+		int i = v.indexOf('=');
 		cookies.put(v.substring(0, i).trim(), v.substring(i + 1));
 	}
 	
