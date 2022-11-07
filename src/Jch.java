@@ -82,12 +82,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Command nextPostsItemCmd = new Command("След. посты", Command.ITEM, 0);
 	private static Command prevPostsItemCmd = new Command("Пред. посты", Command.ITEM, 0);
 	private static Command boardsItemCmd = new Command("Доски", Command.ITEM, 0);
-	private static Command postTextItemCmd = new Command("Ред. текст", Command.ITEM, 0);
-	private static Command postAddFileItemCmd = new Command("Добавить файл", Command.ITEM, 0);
+	//private static Command postTextItemCmd = new Command("Ред. текст", Command.ITEM, 0);
+	//private static Command postAddFileItemCmd = new Command("Добавить файл", Command.ITEM, 0);
 	private static Command openByLinkItemCmd = new Command("Открыть по ссылке", Command.ITEM, 0);
 	private static Command proxyInfoItemCmd = new Command("Свой прокси", Command.ITEM, 0);
-	private static Command postThreadCmd = new Command("Запостить тред", Command.SCREEN, 0);
-	private static Command postCommentCmd = new Command("Ответить в тред", Command.SCREEN, 0);
+	//private static Command postThreadCmd = new Command("Запостить тред", Command.SCREEN, 0);
+	//private static Command postCommentCmd = new Command("Ответить в тред", Command.SCREEN, 0);
 	private static Command threadGotoStartCmd = new Command("Перейти к началу треда", Command.SCREEN, 0);
 	private static Command nextThreadsItemCmd = new Command("След. треды", Command.ITEM, 0);
 	private static Command prevThreadsItemCmd = new Command("Пред. треды", Command.ITEM, 0);
@@ -95,8 +95,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Command settingsCmd = new Command("Настройки", Command.SCREEN, 0);
 	//private static Command agreeCmd = new Command("Да", Command.OK, 0);
 	//private static Command disagreeCmd = new Command("Нет", Command.EXIT, 0);
-	private static Command postCmd = new Command("Запостить", Command.OK, 0);
-	private static Command captchaConfirmCmd = new Command("Подтвердить", Command.OK, 0);
+	//private static Command postCmd = new Command("Запостить", Command.OK, 0);
+	//private static Command captchaConfirmCmd = new Command("Подтвердить", Command.OK, 0);
 	private static Command textOkCmd = new Command("Ок", Command.OK, 0);
 	private static Command linkOkCmd = new Command("Ок", Command.OK, 0);
 	private static Command importUsercodeCmd = new Command("Импортировать юзеркод", Command.SCREEN, 0);
@@ -122,7 +122,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Form boardsFrm;
 	private static Form settingsFrm;
 	private static Form postingFrm;
-	private static Form captchaFrm;
+	//private static Form captchaFrm;
 	private static Form searchFrm;
 	
 	private static TextField boardField;
@@ -134,13 +134,14 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static TextField setFileProxyField;
 	private static ChoiceGroup setChoice;
 	private static Gauge setMaxPostsGauge;
-	
+	/*
 	private static TextField postSubjectField;
 	private static TextField postTextField;
 	private static StringItem postTextBtn;
-	private static TextBox tempTextBox;
 	private static TextField captchaField;
-
+	*/
+	private static TextBox tempTextBox;
+	
 	private static TextField searchField;
 	
 	private static String currentBoard;
@@ -149,12 +150,14 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static String postThread;
 	private static String postBoard;
 	private static String currentPost;
-	private static String captchaId;
+	/*
+	 * private static String captchaId;
 	
 	private static int postError;
 	private static int postFilesCount;
 	private static Vector postFiles;
-	//private int postingFileBtnIdx;
+	private int postingFileBtnIdx;
+	*/
 
 	private static boolean running = true;
 	
@@ -203,9 +206,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Hashtable cookies;
 	private static String cookiesStr;
 
-	private static Vector postFileItems;
+	//private static Vector postFileItems;
 
-	private static boolean directPost;
+	//private static boolean directPost;
 	
 	private int func = 0;
 	
@@ -506,7 +509,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					r.closeRecordStore();
 				} catch (Exception e) {
 				}
-			} else if(d == captchaFrm) {
+			} else /*if(d == captchaFrm) {
 				if(postError == -5) {
 					captchaFrm.deleteAll();
 					postError = 200;
@@ -531,7 +534,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				} else {
 					display.setCurrent(postingFrm);
 				}
-			} else if(d == searchFrm) {
+			} else*/ if(d == searchFrm) {
 				display.setCurrent(boardFrm);
 				clearThreadData();
 				searchLinks.clear();
@@ -559,7 +562,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				display.setCurrentItem(s);
 			} catch (Throwable e) {
 			}
-		} else if(c == postThreadCmd) {
+		} else /*if(c == postThreadCmd) {
 			postThread = "0";
 			postBoard = currentBoard;
 			createPostingForm();
@@ -571,7 +574,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			postTextField.setString(tempTextBox.getString());
 			display(postingFrm);
 			tempTextBox = null;
-		} else if(c == settingsCmd) {
+		} else */if(c == settingsCmd) {
 			if(settingsFrm == null) {
 				settingsFrm = new Form("Jch - Настройки");
 				settingsFrm.addCommand(backCmd);
@@ -599,7 +602,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				s.setItemCommandListener(inst);
 			}
 			display(settingsFrm);
-		} else if(c == postCmd) {
+		} else /*if(c == postCmd) {
 			try {
 				captchaFrm = new Form("Jch - Ввод капчи");
 				captchaFrm.addCommand(backCmd);
@@ -674,7 +677,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				e.printStackTrace();
 				captchaFrm.append(e.toString());
 			}
-		} else if(c == threadGotoStartCmd) {
+		} else */if(c == threadGotoStartCmd) {
 			openThread(currentThread, currentBoard, null);
 		} else if(c == linkOkCmd) {
 			String s = tempTextBox.getString();
@@ -742,7 +745,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		}
 		return s;
 	}
-
+/*
 	private static void generateCaptcha() throws Exception {
 		captchaFrm.setTitle("Jch - Ввод капчи");
 		result = getObject(getString(apiProxyUrl + "?u=https://2ch.life/api/captcha/2chcaptcha/id"));
@@ -752,7 +755,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	
 		byte[] b = get(apiProxyUrl + "?u=https://2ch.life/api/captcha/2chcaptcha/show?id=" + captchaId);
 		captchaFrm.append(Image.createImage(b, 0, b.length));
-		
+	*/	
 		/*
 		StringItem s2 = new StringItem("", "Получить ид капчи", Item.BUTTON);
 		final Command c3 = new Command("Получить ид капчи", Command.ITEM, 0);
@@ -797,10 +800,11 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		});
 		captchaFrm.append(s2);
 		*/
+	/*
 		captchaFrm.append(captchaField = new TextField("Капча", "", 6, TextField.NUMERIC));
 		captchaFrm.addCommand(captchaConfirmCmd);
 		captchaFrm.setCommandListener(inst);
-	}
+	}*/
 
 	public void itemStateChanged(Item item) {
 		if(item == setChoice) {
@@ -815,7 +819,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			setFileProxyField.setConstraints(directFile ? (TextField.URL | TextField.UNEDITABLE) : TextField.URL);
 		}
 	}
-	
+	/*
 	private static void createPostingForm() {
 		postingFrm = new Form("Jch - Форма постинга");
 		postingFrm.addCommand(backCmd);
@@ -838,12 +842,12 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		s.addCommand(postAddFileItemCmd);
 		s.setDefaultCommand(postAddFileItemCmd);
 		s.setItemCommandListener(inst);
-		/*postingFileBtnIdx = */postingFrm.append(s);
+		//postingFileBtnIdx = postingFrm.append(s);
 		display(postingFrm);
 		postFiles = new Vector();
 		postFileItems = new Vector();
 	}
-
+	*/
 	// отчистка всего говна от тредов и "хтмл парса"
 	private static void clearThreadData() {
 		files.clear();
@@ -949,7 +953,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		} else if(c == boardSearchItemCmd) {
 			searchLinks.clear();
 			clearThreadData();
-			searchFrm.deleteAll();
+			if(searchFrm != null) searchFrm.deleteAll();
 			searchFrm = new Form("Jch - Результаты поиска");
 			searchFrm.addCommand(backCmd);
 			searchFrm.setCommandListener(inst);
@@ -1019,13 +1023,13 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			display(boardsFrm);
 			addLoadingLabel(boardsFrm);
 			loadBoards();
-		} else if(c == postTextItemCmd) {
+		} else /*if(c == postTextItemCmd) {
 			tempTextBox = new TextBox("", "", 1000, TextField.ANY);
 			tempTextBox.setString(postTextField.getString());
 			tempTextBox.addCommand(textOkCmd);
 			tempTextBox.setCommandListener(inst);
 			display(tempTextBox);
-		} else if(c == openByLinkItemCmd) {
+		} else */if(c == openByLinkItemCmd) {
 			tempTextBox = new TextBox("", "", 200, TextField.URL);
 			tempTextBox.setTitle("URL");
 			tempTextBox.addCommand(linkOkCmd);
@@ -1040,8 +1044,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			t.addCommand(backCmd);
 			t.setCommandListener(inst);
 			display(t);
-		} else if(c == postAddFileItemCmd) {
-			
 		}
 	}
 	
@@ -1051,12 +1053,97 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			if(apiProxyUrl == null || apiProxyUrl.length() < 2 || apiProxyUrl.endsWith("=")) {
 				apiProxyUrl = DEFAULT_PROXY_URL;
 			}
-			getResult("makaba/makaba.fcgi?json=1&task=search&board=" + currentBoard + "&find=" + encodeUrl(q), apiProxyUrl, "2ch.life");
-			if (!(result instanceof JSONObject))
+			HttpConnection hc = (HttpConnection) open(apiProxyUrl + "?post=true&u="+prepareUrl("user/search?json=1", direct2ch ? null : apiProxyUrl, instanceUrl), Connector.READ_WRITE);
+
+			InputStream is = null;
+			OutputStream os = null;
+			ByteArrayOutputStream o = null;
+			hc.setRequestMethod("POST");
+			if(cookiesStr != null) {
+				hc.setRequestProperty("Cookie", cookiesStr);
+			}
+			Vector parts = new Vector();
+			parts.addElement(new Object[] { "board", currentBoard});
+			parts.addElement(new Object[] { "text", q});
+			StringBuffer sb = new StringBuffer();
+			Random rng = new Random();
+			for (int i = 0; i < 27; i++) {
+				sb.append('-');
+			}
+			for (int i = 0; i < 11; i++) {
+				sb.append(rng.nextInt(10));
+			}
+			String boundaryStr = sb.toString();
+			sb.setLength(0);
+			String charsetName = "UTF-8";
+			int contentLength = 0;
+			int boundaryLength = boundaryStr.length();
+			int dashesLength = TWO_DASHES.length;
+			int lineLength = NEW_LINE.length;
+			for(int i = 0; i < parts.size(); i++) {
+				Object[] part = (Object[]) parts.elementAt(i); 
+				contentLength += dashesLength + boundaryLength + lineLength;
+				contentLength += 39 + ((String)part[0]).getBytes(charsetName).length;
+				contentLength += lineLength;
+				contentLength += lineLength + ((String)part[1]).getBytes(charsetName).length + lineLength;
+			}
+			contentLength += dashesLength + boundaryLength + dashesLength + lineLength;
+			hc.setRequestProperty("Connection", "keep-alive");
+			hc.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundaryStr);
+			hc.setRequestProperty("Content-length", i(contentLength));
+			os = hc.openOutputStream();
+			byte[] boundary = boundaryStr.getBytes("ISO-8859-1");
+			for(int i = 0; i < parts.size(); i++) {
+				Object[] part = (Object[]) parts.elementAt(i); 
+				os.write(TWO_DASHES);
+				os.write(boundary);
+				os.write(NEW_LINE);
+				os.write("Content-Disposition: form-data; name=\"".getBytes("ISO-8859-1"));
+				os.write(((String)part[0]).getBytes(charsetName));
+				os.write('"');
+				os.write(NEW_LINE);
+				os.write(NEW_LINE);
+				os.write(((String)part[1]).getBytes(charsetName));
+				os.write(NEW_LINE);
+			}
+			os.write(TWO_DASHES);
+			os.write(boundary);
+			os.write(TWO_DASHES);
+			os.write(NEW_LINE);
+			os.flush();
+			os.close();
+			is = hc.openInputStream();
+			o = new ByteArrayOutputStream();
+			byte[] buf = new byte[256];
+			int len;
+			while ((len = is.read(buf)) != -1) {
+               o.write(buf, 0, len);
+			}
+			is.close();
+			byte[] b = o.toByteArray();
+			o.close();
+			o.reset();
+			Object result;
+			try {
+				result = new String(b, "UTF-8");
+			} catch (Throwable e) {
+				result = new String(b);
+			}
+			b = null;
+			System.gc();
+			if(result.toString().length() == 0)
+				throw new IOException("Empty response");
+			char c = ((String) result).charAt(0);
+			if(c == '{')
+				result = getObject((String) result);
+			else
 				throw new RuntimeException("Result not object: " + result);
 			JSONObject j = (JSONObject) result;
+			if(j.has("error") && j.getObject("error").has("message")) {
+				throw new Exception(j.getObject("error").getString("message"));
+			}
 			JSONArray posts = j.getNullableArray("posts");
-			result = j = null;
+			result = null;
 			if (posts == null || posts.size() == 0) {
 				StringItem s = new StringItem(null, "Ничего не найдено");
 				s.setLayout(Item.LAYOUT_CENTER);
@@ -1067,8 +1154,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			System.gc();
 		} catch (Exception e) {
 			e.printStackTrace();
-			removeLoadingLabel(threadFrm);
-			addLoadingLabel(threadFrm, "Ошибка!");
+			removeLoadingLabel(searchFrm);
+			addLoadingLabel(searchFrm, "Ошибка!");
 			StringItem s = new StringItem(null, e.toString());
 			s.setLayout(Item.LAYOUT_LEFT);
 			searchFrm.append(s);
@@ -1158,7 +1245,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					JSONObject t = th.getObject(0);
 					posts = t.getArray("posts");
 				}
-				threadFrm.addCommand(postCommentCmd);
+				//threadFrm.addCommand(postCommentCmd);
 				threadFrm.addCommand(threadGotoStartCmd);
 				if(j != null) {
 					threadFrm.setTitle("/".concat(bd).concat("/ - ").concat(htmlText(j.getString("title", ""))));
@@ -1511,7 +1598,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static void createBoard(final String board) {
 		boardFrm = new Form("Jch - /".concat(board).concat("/"));
 		boardFrm.addCommand(backCmd);
-		boardFrm.addCommand(postThreadCmd);
+		//boardFrm.addCommand(postThreadCmd);
 		boardFrm.setCommandListener(inst);
 		boardFrm.append(boardSearchField = new TextField("Поиск", "", 1000, TextField.ANY));
 		boardSearchField.addCommand(boardSearchItemCmd);
@@ -1937,11 +2024,13 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 	private static final byte[] TWO_DASHES = {0x2d, 0x2d};
 	private static final byte[] NEW_LINE = {0x0d, 0x0a};
+	/*
 	// пост для постинга
 	public static byte[] post(boolean files) throws Exception {
 		//System.out.println("POST " + url);
 		//System.out.println(content);
-		String cid = /*captchaIdField.getString()*/ captchaId;
+		//String cid = captchaIdField.getString();
+		String cid = captchaId;
 		String ckey = captchaField.getString();
 		String subj = postSubjectField.getString();
 		String comm = postTextField.getString();
@@ -2085,6 +2174,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 						}
 					}
 				}*/
+/*
 			boolean hasCookies = false;
 			for (int i = 0;; i++) {
 				String k = hc.getHeaderFieldKey(i);
@@ -2119,7 +2209,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				o.close();
 		}
 	}
-
+*/
 	public static String getString(String url) throws IOException {
 		byte[] b = get(url);
 		try {
