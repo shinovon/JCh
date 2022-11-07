@@ -1,12 +1,10 @@
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Random;
 import java.util.Vector;
 
 import javax.microedition.io.Connector;
@@ -74,7 +72,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Command backCmd = new Command("Назад", Command.BACK, 0);
 	private static Command boardFieldCmd = new Command("Открыть", Command.OK, 0);
 	private static Command boardCmd = new Command("Треды", Command.OK, 0);
-	private static Command boardSearchItemCmd = new Command("Поиск", Command.OK, 0);
+	//private static Command boardSearchItemCmd = new Command("Поиск", Command.OK, 0);
 	private static Command openThreadCmd = new Command("Открыть тред", Command.ITEM, 0);
 	private static Command fileImgItemOpenCmd = new Command("Открыть файл", Command.ITEM, 0);
 	private static Command postLinkItemCmd = new Command("Открыть ссылку", Command.ITEM, 0);
@@ -126,7 +124,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static Form searchFrm;
 	
 	private static TextField boardField;
-	private static TextField boardSearchField;
+	//private static TextField boardSearchField;
 	
 	private static TextField setInstanceField;
 	private static TextField setApiProxyField;
@@ -142,7 +140,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	*/
 	private static TextBox tempTextBox;
 	
-	private static TextField searchField;
+	//private static TextField searchField;
 	
 	private static String currentBoard;
 	private static String currentThread;
@@ -184,7 +182,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	private static int threadsCount;
 	private static int catalogIndex;
 	
-	private static String query;
+	//private static String query;
 
 	// Settings
 	private static boolean direct2ch;
@@ -229,7 +227,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			_loadBoards();
 			break;
 		case 2:
-			loadSearch(query);
+			//loadSearch(query);
 			break;
 		case 3:
 			loadThread(currentThread, currentBoard, currentPost);
@@ -445,7 +443,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				display.setCurrent(mainFrm);
 				boardFrm.deleteAll();
 				boardFrm = null;
-				boardSearchField = null;
+				//boardSearchField = null;
 			} else if(d == threadFrm) {
 				display.setCurrent(searchFrm != null ? searchFrm : boardFrm != null ? boardFrm : mainFrm);
 				if(lastThread != null && lastThread.isAlive()) {
@@ -534,14 +532,14 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 				} else {
 					display.setCurrent(postingFrm);
 				}
-			} else*/ if(d == searchFrm) {
+			} else if(d == searchFrm) {
 				display.setCurrent(boardFrm);
 				clearThreadData();
 				searchLinks.clear();
 				searchFrm.deleteAll();
 				searchFrm = null;
 				searchField = null;
-			} else if(d == tempTextBox) {
+			} else*/ if(d == tempTextBox) {
 				display.setCurrent(mainFrm);
 				tempTextBox = null;
 			} else {
@@ -950,7 +948,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					}
 				}
 			}
-		} else if(c == boardSearchItemCmd) {
+		} else /*if(c == boardSearchItemCmd) {
 			searchLinks.clear();
 			clearThreadData();
 			if(searchFrm != null) searchFrm.deleteAll();
@@ -965,7 +963,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			searchField.setItemCommandListener(inst);
 			display(searchFrm);
 			(lastThread = new Thread(new Jch(2))).start();
-		} else if (c == postSpoilerItemCmd) {
+		} else */if (c == postSpoilerItemCmd) {
 			String t = (String) spoilers.get(item);
 			if(t != null) {
 				String l = (String) links.get(item);
@@ -1046,7 +1044,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			display(t);
 		}
 	}
-	
+	/*
 	private static void loadSearch(final String q) {
 		try {
 			postsCount = -1;
@@ -1161,7 +1159,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			searchFrm.append(s);
 		}
 	}
-
+*/
 	private static void openThread(String id) {
 		openThread(id, currentBoard, null);
 	}
@@ -1600,9 +1598,11 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		boardFrm.addCommand(backCmd);
 		//boardFrm.addCommand(postThreadCmd);
 		boardFrm.setCommandListener(inst);
+		/*
 		boardFrm.append(boardSearchField = new TextField("Поиск", "", 1000, TextField.ANY));
 		boardSearchField.addCommand(boardSearchItemCmd);
 		boardSearchField.setItemCommandListener(inst);
+		*/
 		addLoadingLabel(boardFrm);
 		display.setCurrent(boardFrm);
 		/*StringItem btn = new StringItem("Поиск", "", StringItem.BUTTON);
@@ -2022,9 +2022,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		} catch (Exception e) {
 		}
 	}
+	/*
 	private static final byte[] TWO_DASHES = {0x2d, 0x2d};
 	private static final byte[] NEW_LINE = {0x0d, 0x0a};
-	/*
 	// пост для постинга
 	public static byte[] post(boolean files) throws Exception {
 		//System.out.println("POST " + url);
