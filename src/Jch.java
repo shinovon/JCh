@@ -877,9 +877,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			// открытие файла
 			String path = (String) files.get(item);
 			if(path != null) {
-				//TODO: передача куков для юзеркода либо скачивание
 				try {
-					if(midlet.platformRequest(prepareUrl(path, directFile ? null : fileProxyUrl, instanceUrl))) {
+					if(midlet.platformRequest(prepareUrl(path, directFile ? null : fileProxyUrl, instanceUrl, true))) {
 						//notifyDestroyed();
 					}
 				} catch (Exception e) {
@@ -1691,7 +1690,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 	}
 	
 	public static Image getImg(String url, String proxy) throws IOException {
-		url = prepareUrl(url, proxy, instanceUrl);
+		url = prepareUrl(url, proxy, instanceUrl, false);
 		byte[] b = get(url);
 		return Image.createImage(b, 0, b.length);
 	}
@@ -1700,7 +1699,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		//System.out.println(s);
 		result = null;
 		String s2 = s;
-		result = getString(prepareUrl(s, proxy, inst));
+		result = getString(prepareUrl(s, proxy, inst, false));
 		// пустой ответ
 		if(result.toString().length() == 0) throw new IOException("Empty response: " + s2);
 		// проверка на жсон
@@ -1715,13 +1714,16 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		getResult(s, direct2ch ? null : apiProxyUrl, instanceUrl);
 	}
 
-	public static String prepareUrl(String url, String proxy, String inst) {
+	public static String prepareUrl(String url, String proxy, String inst, boolean addCookie) {
 		if(url.startsWith("/")) url = url.substring(1);
 		if(url.endsWith("&") || url.endsWith("?"))
 			url = url.substring(0, url.length() - 1);
 		if(proxy != null && proxy.length() > 1) {
 			//конкатконкатконкатконкатконкат
 			url = proxy.concat("?u=").concat(encodeUrl("https://".concat(inst).concat("/").concat(url)));
+			if(addCookie && cookiesStr != null) {
+				url = url.concat("&c=").concat(encodeUrl(cookiesStr));
+			}
 		} else {
 			url = "https://".concat(inst).concat("/").concat(url);
 		}
@@ -2001,7 +2003,7 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			Object k = en.nextElement();
 			sb.append(k.toString()).append("=").append(cookies.get(k).toString());
 			if (!en.hasMoreElements()) {
-				cookiesStr = sb.deleteCharAt(sb.length()-1).toString();
+				cookiesStr = sb.toString();
 				return;
 			}
 			sb.append("; ");
