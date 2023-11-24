@@ -35,7 +35,6 @@ import dom.Node;
 import dom.NodeList;
 import json.JSONArray;
 import json.JSONObject;
-import json.NullEquivalent;
 import tidy.Tidy;
 
 public class Jch implements CommandListener, ItemCommandListener, ItemStateListener, Runnable {
@@ -2263,13 +2262,9 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			if(conf == null) conf = "CLDC-1.0";
 			String prof = System.getProperty("microedition.profiles");
 			if(prof == null) prof = "MIDP-2.0";
-			else {
-				if(prof.indexOf('-') == -1 && (prof.toUpperCase()).indexOf("MIDP") == 0) {
-					prof = "MIDP-" + prof.substring(4);
-				}
+			else if(prof.indexOf('-') == -1 && (prof.toUpperCase()).indexOf("MIDP") == 0) {
+				prof = "MIDP-" + prof.substring(4);
 			}
-			String p1 = System.getProperty("com.symbian.default.to.suite.icon");
-			if(p1 == null) p1 = System.getProperty("com.symbian.midp.serversocket.support");
 			if(osn != null) {
 				// check for Windows
 				if(osnl.indexOf("win") != -1 ||
@@ -2369,14 +2364,8 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 					}
 				}
 			// Symbian <=9.2 or generic J2ME
-			} else {
-				if(p1 != null) {
-					_os = "SymbianOS/9.x; Series60/3.x " + platf;
-				} else {
-					if(platf != null) {
-						_os = platf;
-					}
-				}
+			} else if(platf != null) {
+				_os = platf;
 			}
 			// Profile & Configuration
 			if(a == null || a.length() == 0) {
@@ -2516,7 +2505,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 		return str;
 	}
 	// здесь начинается выдранное из жсон либы
-	public final static Object null_equivalent = new NullEquivalent();
 	
 	private static final Boolean TRUE = new Boolean(true);
 	private static final Boolean FALSE = new Boolean(false);
@@ -2642,23 +2630,10 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 
 				return str;
 			} else if (first != '{' && first != '[') {
-				if (str.equals("null"))
-					return null_equivalent;
 				if (str.equals("true"))
 					return TRUE;
 				if (str.equals("false"))
 					return FALSE;
-				if(str.charAt(0) == '0' && str.charAt(1) == 'x') {
-					try {
-						return new Integer(Integer.parseInt(str.substring(2), 16));
-					} catch (Exception e) {
-						try {
-							return new Long(Long.parseLong(str.substring(2), 16));
-						} catch (Exception e2) {
-							// Skip
-						}
-					}
-				}
 				return str;
 			} else {
 				// Parse json object or array
@@ -2724,10 +2699,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			}
 		}
 	}
-	
-	public static boolean isNull(Object obj) {
-		return null_equivalent.equals(obj);
-	}
 
 	public static String escape_utf8(String s) {
 		int len = s.length();
@@ -2769,25 +2740,6 @@ public class Jch implements CommandListener, ItemCommandListener, ItemStateListe
 			i++;
 		}
 		return sb.toString();
-	}
-
-	public static Double getDouble(Object o) throws Exception {
-		try {
-			if (o instanceof Short)
-				return new Double(((Short)o).shortValue());
-			else if (o instanceof Integer)
-				return new Double(((Integer)o).intValue());
-			else if (o instanceof Long)
-				return new Double(((Long)o).longValue());
-			else if (o instanceof Double)
-				return (Double) o;
-			//else if (o instanceof Float)
-			//	return new Double(((Float)o).doubleValue());
-			else if (o instanceof String)
-				return Double.valueOf((String) o);
-		} catch (Throwable e) {
-		}
-		throw new Exception("JSON: Value cast failed: " + o);
 	}
 
 	public static Long getLong(Object o) throws Exception {

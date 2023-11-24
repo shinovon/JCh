@@ -132,19 +132,6 @@ public class JSONObject extends AbstractJSON {
 		}
 	}
 	
-	public double getDouble(String name) throws Exception {
-		return Jch.getDouble(get(name)).doubleValue();
-	}
-
-	public double getDouble(String name, double def) {
-		if(!has(name)) return def;
-		try {
-			return getDouble(name);
-		} catch (Exception e) {
-			return def;
-		}
-	}
-	
 	public boolean getBoolean(String name) throws Exception {
 		Object o = get(name);
 		if(o instanceof Boolean) return ((Boolean) o).booleanValue();
@@ -164,10 +151,6 @@ public class JSONObject extends AbstractJSON {
 		} catch (Exception e) {
 			return def;
 		}
-	}
-	
-	public boolean isNull(String name) throws Exception {
-		return Jch.isNull(get(name));
 	}
 
 	public void put(String name, String s) {

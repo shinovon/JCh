@@ -108,18 +108,6 @@ public class JSONArray extends AbstractJSON {
 		}
 	}
 	
-	public double getDouble(int index) throws Exception {
-		return Jch.getDouble(get(index)).doubleValue();
-	}
-	
-	public double getDouble(int index, double def) {
-		try {
-			return getDouble(index);
-		} catch (Exception e) {
-			return def;
-		}
-	}
-	
 	public boolean getBoolean(int index) throws Exception {
 		Object o = get(index);
 		if(o instanceof Boolean) return ((Boolean) o).booleanValue();
